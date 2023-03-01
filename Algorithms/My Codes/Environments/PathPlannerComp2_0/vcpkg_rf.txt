@@ -1,0 +1,7 @@
+install
+opencv4
+glad
+glfw3
+glslang
+stb
+dlib
