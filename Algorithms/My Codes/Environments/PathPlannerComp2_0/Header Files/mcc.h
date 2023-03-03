@@ -29,6 +29,8 @@ public:
 	Node* left, * right, * bottom, * top, * best;
 	float cost = 10000.0f;
 
+	Node* boundary_left, * boundary_right;
+
 	void check() {
 		empty = not empty;
 		if (empty)

@@ -173,6 +173,16 @@ private:
 
 	void contour_extractor(void);
 
+	void contour_extractor2(void);
+
+	void contour_builder(Node* boundary_cell, bool search_left, bool search_right, int last_operation, Node* stopping_node);
+
+	void call_next_left(Node* boundary_cell, int dir, Node* stopping_node);
+
+	void call_next_right(Node* boundary_cell, int dir, Node* stopping_node);
+
+	void contour_analyzer(void);
+
 	int contour_explorer(Node* node, bool* travel_list, int this_node_index, int remaining_nodes, int start, int pass);
 
 	bool build_contour(Node* node, bool* travel_list, int this_node_index, int remaining_nodes, int starting_param);

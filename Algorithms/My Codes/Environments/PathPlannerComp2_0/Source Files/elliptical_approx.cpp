@@ -171,11 +171,11 @@ void elliptical_approx::init(std::vector<Node>* node_list, int width, int height
 	convex_clustering clusterer = convex_clustering(&render_agent);
 	this->cluster = &clusterer;
 
-	//contour_extractor();
+	contour_extractor2();
 	//locate_obstacles();
 
 	//ellipse ellipse1 = ellipse(77.04f, 25.04f, 15.09f, 21.54f, 46.69 * PI / 180);
-	cluster->clustering_2(node_list, GRID_WIDTH);
+	//cluster->clustering_2(node_list, GRID_WIDTH);
 }
 
 void elliptical_approx::merge_strips(int row, int index2, polygon2D* obstacle, std::vector<std::vector<coord>>* strips_list) {
@@ -458,6 +458,134 @@ void elliptical_approx::find_ellipse1(void) {
 	this->render_agent.draw_ellipse(ellipse(params(0, 0), params(1, 0), params(2, 0), params(3, 0), params(4, 0) * PI / 180));
 }
 
+void elliptical_approx::call_next_left(Node* boundary_cell, int dir, Node* stopping_node) {
+	Node* next_node = nullptr;
+	switch (dir) {
+	case 0:		next_node = boundary_cell->left;		break;
+	case 1:		next_node = boundary_cell->bottom;		break;
+	case 2:		next_node = boundary_cell->right;		break;
+	case 3:		next_node = boundary_cell->top;			break;
+	default:	next_node = nullptr;					break;
+	}
+
+	boundary_cell->boundary_left = next_node;
+	next_node->boundary_right = boundary_cell;
+	if (next_node == stopping_node)
+		return;
+	contour_builder(next_node, true, false, dir, stopping_node);
+}
+
+void elliptical_approx::call_next_right(Node* boundary_cell, int dir, Node* stopping_node) {
+	render_agent.invalidate();
+	std::cin.ignore();
+	Node* next_node = nullptr;
+	switch (dir) {
+	case 0:		next_node = boundary_cell->left;		break;
+	case 1:		next_node = boundary_cell->bottom;		break;
+	case 2:		next_node = boundary_cell->right;		break;
+	case 3:		next_node = boundary_cell->top;			break;
+	default:	next_node = nullptr;					break;
+	}
+
+	boundary_cell->boundary_right = next_node;
+	next_node->boundary_left = boundary_cell;
+	render_agent.add_path(Path(boundary_cell, next_node));
+	if (next_node == stopping_node)
+		return;
+	contour_builder(next_node, false, true, dir, stopping_node);
+}
+
+void elliptical_approx::contour_builder(Node* boundary_cell, bool search_left, bool search_right, int last_operation, Node* stopping_node) {
+	// for a given end point; locate its left and right neighbour.
+	bool bounds[4] = { false, false, false, false };
+	bounds[0] = (boundary_cell->left->type == BASE_EMPTY);
+	bounds[1] = (boundary_cell->bottom->type == BASE_EMPTY);
+	bounds[2] = (boundary_cell->right->type == BASE_EMPTY);
+	bounds[3] = (boundary_cell->top->type == BASE_EMPTY);
+
+	std::cout << " [CELL] : x = " << boundary_cell->x << ", y = " << boundary_cell->y << 
+		". Boundaries : {" << bounds[0] << ", " << bounds[1] << ", " << bounds[2] << ", " << bounds[3] << "}\n";
+	//std::cin.ignore();
+
+	// -- termination step --> if all neighbours are BASE_TAKEN. STOP!!!
+	int first_boundary = -1;
+	for (int i = 0; i < 4; i++) {
+		if (bounds[i]){
+			first_boundary = i;
+			break;
+		}
+		if (i == 3){
+			// checkout for corner boundary (plus-center case) condition
+			// modify the last call to skip this call and forward it to next point
+			if (search_left) {
+				//call_next_left(boundary_cell, (last_operation + 3) % 4, stopping_node);
+			}
+			if (search_right) {
+				call_next_right(boundary_cell, (last_operation + 1) % 4, stopping_node);
+			}
+			// terminate function here
+			return;
+		}
+	}
+
+	// -- First find the boundary direction (left/right/top/bottom).
+	// first_boundary holds that info;
+	
+	// -- move clockwise/anti-clockwise from there to spot neighbour
+	// ** left neighbour : 
+	/*if (search_left) {
+		for (int i = 1; i < 4; i++) {
+			if (bounds[(first_boundary + i) % 4] == false) {
+				call_next_left(boundary_cell, (first_boundary + i) % 4, stopping_node);
+				break;
+			}
+		}
+	}*/
+	// ** right neighbour : 
+	if (search_right) {
+		for (int i = 1; i < 4; i++) {
+			if (bounds[(4 + first_boundary - i) % 4] == false) {
+				call_next_right(boundary_cell, (4 + first_boundary - i) % 4, stopping_node);
+				break;
+			}
+		}
+	}
+}
+
+void elliptical_approx::contour_analyzer(void) {
+
+}
+
+void elliptical_approx::contour_extractor2(void) {
+	int first_index = -1000;
+	for (int i = 0; i < GRID_HEIGHT; i++) {
+		for (int j = 0; j < GRID_WIDTH; j++) {
+			if (node_list->at(i * GRID_HEIGHT + j).type == BASE_TAKEN)
+				first_index = i * GRID_HEIGHT + j;
+		}
+	}
+
+	if (first_index < 0 || first_index >= node_list->size())
+		return;
+
+	render_agent.invalidate();
+	contour_builder(&node_list->at(first_index), true, true, 0, &node_list->at(first_index));
+
+	/*Node* start_node = &node_list->at(first_index);
+	Node* next_node = node_list->at(first_index).boundary_left;
+	render_agent.add_path(Path(start_node, next_node));
+	render_agent.invalidate();
+	std::cout << " [PATH] : {(" << start_node->x << ", " << start_node->y << ") ; (" << next_node->x << ", " << next_node->y << ")}\n";
+
+	while (next_node != start_node) {
+		start_node = next_node;
+		next_node = start_node->boundary_left;
+		/*render_agent.add_path(Path(start_node, next_node));
+		render_agent.invalidate();*
+		std::cout << " [PATH] : {(" << start_node->x << ", " << start_node->y << ") ; (" << next_node->x << ", " << next_node->y << ")}\n";
+	}*/
+}
+
 void elliptical_approx::contour_extractor(void) {
 	std::cout << GRID_WIDTH << std::endl;
 	int** map = new int* [GRID_HEIGHT];
@@ -485,6 +613,7 @@ void elliptical_approx::contour_extractor(void) {
 						first_index = j * GRID_WIDTH + i;
 					node_list->at(j * GRID_WIDTH + i).type = START;
 					points.push_back(Point(i, j));
+					std::cout << " [" << i << ", " << j << "], ";
 					if (left_bound > i)
 						left_bound = i;
 					if (right_bound < i)
