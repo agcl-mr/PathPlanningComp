@@ -111,6 +111,25 @@ void local_visualizer::show_edges(std::vector<Line>* edge_list) {
 	}
 }
 
+void local_visualizer::draw_ears_v2(std::vector<Point>* points, std::vector<std::vector<int>>* poly_indice) {
+	if (true) {
+		Color color[] = { Color(0.0f, 0.0f, 0.0f), Color(1.0f, 1.0f, 1.0f), Color(1.0f, 0.0f, 0.0f),
+		Color(0.0f, 1.0f, 1.0f), Color(0.0f, 1.0f, 0.0f), Color(1.0f, 0.0f, 1.0f), Color(1.0f, 1.0f, 0.0f) };
+
+		for (int k = 0; k < poly_indice->size(); k++) {
+			std::vector<int> ear = poly_indice->at(k);
+			for (int i = 0; i < ear.size(); i++) {
+				if (i + 1 == ear.size()) {
+					paths->push_back(Path(points->at(ear[i]).x, points->at(ear[i]).y, points->at(ear[0]).x, points->at(ear[0]).y, color[k % 7]));
+					break;
+				}
+				paths->push_back(Path(points->at(ear[i]).x, points->at(ear[i]).y, points->at(ear[i + 1]).x, points->at(ear[i + 1]).y, color[k % 7]));
+			}
+		}
+		invalidate();
+	}
+}
+
 void local_visualizer::draw_ears(int data_x[], int data_y[], std::vector<std::vector<int>>* poly_indice) {
 	if (true) {
 		Color color[] = { Color(0.0f, 0.0f, 0.0f), Color(1.0f, 1.0f, 1.0f), Color(1.0f, 0.0f, 0.0f),
@@ -127,6 +146,35 @@ void local_visualizer::draw_ears(int data_x[], int data_y[], std::vector<std::ve
 			}
 		}
 		invalidate();
+	}
+}
+
+void local_visualizer::visualize_ear_2(std::vector<Point>*points, std::vector<int>* ear, bool clear_again) {
+	if (true) {
+		Color color = Color(0.0f, 0.0f, 0.0f);
+
+		for (int i = 0; i < ear->size(); i++) {
+			if (i + 1 == ear->size()) {
+				paths->push_back(Path(points->at(ear->at(i)).x, points->at(ear->at(i)).y, 
+					points->at(ear->at(0)).x, points->at(ear->at(0)).y, color));
+				break;
+			}
+			paths->push_back(Path(points->at(ear->at(i)).x, points->at(ear->at(i)).y,
+				points->at(ear->at(i+1)).x, points->at(ear->at(i+1)).y, color));
+		}
+		invalidate();
+
+
+		std::cin.ignore();
+		if (clear_again) {
+			for (int i = 0; i < ear->size(); i++) {
+				paths->pop_back();
+			}
+			invalidate();
+		}
+		else {
+			scribbled_paths += ear->size();
+		}
 	}
 }
 
@@ -176,6 +224,7 @@ void elliptical_approx::init(std::vector<Node>* node_list, int width, int height
 
 	//ellipse ellipse1 = ellipse(77.04f, 25.04f, 15.09f, 21.54f, 46.69 * PI / 180);
 	//cluster->clustering_2(node_list, GRID_WIDTH);
+	//cluster->clustering_3(node_list, GRID_WIDTH, points);
 }
 
 void elliptical_approx::merge_strips(int row, int index2, polygon2D* obstacle, std::vector<std::vector<coord>>* strips_list) {
@@ -384,7 +433,7 @@ void elliptical_approx::find_ellipse1(void) {
 				//if (up != down || left != right)
 				if (map[j - 1][i] != map[j + 1][i] || map[j][i - 1] != map[j][i + 1]) {
 					node_list->at(j * GRID_WIDTH + i).type = START;
-					points.push_back(Point(i, j));
+					points.at(points.size() - 1).push_back(Point(i, j));
 					if (left_bound > i)
 						left_bound = i;
 					if (right_bound < i)
@@ -458,26 +507,32 @@ void elliptical_approx::find_ellipse1(void) {
 	this->render_agent.draw_ellipse(ellipse(params(0, 0), params(1, 0), params(2, 0), params(3, 0), params(4, 0) * PI / 180));
 }
 
-void elliptical_approx::call_next_left(Node* boundary_cell, int dir, Node* stopping_node) {
+void elliptical_approx::call_next_counter_clockwise(Node* boundary_cell, int dir, Node* stopping_node, bool forward) {
 	Node* next_node = nullptr;
 	switch (dir) {
-	case 0:		next_node = boundary_cell->left;		break;
-	case 1:		next_node = boundary_cell->bottom;		break;
-	case 2:		next_node = boundary_cell->right;		break;
-	case 3:		next_node = boundary_cell->top;			break;
-	default:	next_node = nullptr;					break;
+	case 0:		next_node = boundary_cell->left;				break;
+	case 1:		next_node = boundary_cell->left->bottom;		break;
+	case 2:		next_node = boundary_cell->bottom;				break;
+	case 3:		next_node = boundary_cell->bottom->right;		break;
+	case 4:		next_node = boundary_cell->right;				break;
+	case 5:		next_node = boundary_cell->right->top;			break;
+	case 6:		next_node = boundary_cell->top;					break;
+	case 7:		next_node = boundary_cell->top->left;			break;
+	default:	next_node = nullptr;							break;
 	}
 
 	boundary_cell->boundary_left = next_node;
 	next_node->boundary_right = boundary_cell;
-	if (next_node == stopping_node)
-		return;
-	contour_builder(next_node, true, false, dir, stopping_node);
-}
 
-void elliptical_approx::call_next_right(Node* boundary_cell, int dir, Node* stopping_node) {
-	render_agent.invalidate();
-	std::cin.ignore();
+	if (next_node->x == stopping_node->x && next_node->y == stopping_node->y) {
+		//if (next_node == stopping_node) {
+		std::cout << "breaking out...\n";
+		return;
+	}
+	contour_builder_v2(next_node, true, false, dir, stopping_node);
+}
+/*
+void elliptical_approx::call_next_left(Node* boundary_cell, int dir, Node* stopping_node, bool forward) {
 	Node* next_node = nullptr;
 	switch (dir) {
 	case 0:		next_node = boundary_cell->left;		break;
@@ -487,14 +542,95 @@ void elliptical_approx::call_next_right(Node* boundary_cell, int dir, Node* stop
 	default:	next_node = nullptr;					break;
 	}
 
-	boundary_cell->boundary_right = next_node;
-	next_node->boundary_left = boundary_cell;
-	render_agent.add_path(Path(boundary_cell, next_node));
-	if (next_node == stopping_node)
+	if (forward) {
+		boundary_cell->boundary_right->boundary_left = next_node;
+		next_node->boundary_right = boundary_cell->boundary_right;
+		boundary_cell->boundary_right = nullptr;
+	}
+	else {
+		boundary_cell->boundary_left = next_node;
+		next_node->boundary_right = boundary_cell;
+	}
+	if (next_node->x == stopping_node->x && next_node->y == stopping_node->y) {
+		//if (next_node == stopping_node) {
+		std::cout << "breaking out...\n";
 		return;
-	contour_builder(next_node, false, true, dir, stopping_node);
+	}
+	contour_builder(next_node, true, false, dir, stopping_node);
 }
 
+void elliptical_approx::call_next_right(Node* boundary_cell, int dir, Node* stopping_node, bool forward) {
+	Node* next_node = nullptr;
+	switch (dir) {
+	case 0:		next_node = boundary_cell->left;		break;
+	case 1:		next_node = boundary_cell->bottom;		break;
+	case 2:		next_node = boundary_cell->right;		break;
+	case 3:		next_node = boundary_cell->top;			break;
+	default:	next_node = nullptr;					break;
+	}
+	if (true) {
+		boundary_cell->boundary_right = next_node;
+		next_node->boundary_left = boundary_cell;
+	}
+	if (next_node->x == stopping_node->x && next_node->y==stopping_node->y){
+	//if (next_node == stopping_node) {
+		std::cout << "breaking out...\n";
+		return;
+	}
+	contour_builder(next_node, false, true, dir, stopping_node);
+}
+*/
+void GL_to_image_coords_temp(int GRID_WIDTH, int GRID_HEIGHT, float* x_GL, float* y_GL) {
+	float temp_x = *x_GL;
+	float temp_y = *y_GL;
+	float x_off = (float)GRID_WIDTH / 2;
+	float y_off = (float)GRID_HEIGHT / 2;
+	int scale = ((GRID_WIDTH) > (GRID_HEIGHT) ? (GRID_WIDTH) : (GRID_HEIGHT)) / 2;
+
+	float x_image = temp_x * scale + x_off;
+	float y_image = y_off - temp_y * scale;
+	*x_GL = x_image;
+	*y_GL = y_image;
+}
+
+void elliptical_approx::contour_builder_v2(Node* boundary_cell, bool search_left, bool search_right, int last_operation, Node* stopping_node) {
+	// for a given end point; locate its left and right neighbour.
+	bool bounds[8] = { false, false, false, false, false, false, false, false };
+	bounds[0] = (boundary_cell->left->type == BASE_EMPTY);
+	bounds[1] = (boundary_cell->left->bottom->type == BASE_EMPTY);
+	bounds[2] = (boundary_cell->bottom->type == BASE_EMPTY);
+	bounds[3] = (boundary_cell->bottom->right->type == BASE_EMPTY);
+	bounds[4] = (boundary_cell->right->type == BASE_EMPTY);
+	bounds[5] = (boundary_cell->right->top->type == BASE_EMPTY);
+	bounds[6] = (boundary_cell->top->type == BASE_EMPTY);
+	bounds[7] = (boundary_cell->top->left->type == BASE_EMPTY);
+
+	// -- termination step --> if all neighbours are BASE_TAKEN. STOP!!!
+	int first_boundary = -1;
+	for (int i = 0; i < 8; i++) {
+		if (bounds[i]) {
+			first_boundary = i;
+			break;
+		}
+		if (i == 7)
+			return;
+	}
+
+	// -- First find the boundary direction (left/bottom-left/bottom/bottom-right/right/top-right/top/top-left).
+	// first_boundary holds that info;
+
+	// -- move anti-clockwise from there to spot neighbour
+	// ** left neighbour : 
+	if (search_left) {
+		for (int i = 1; i < 8; i++) {
+			if (bounds[(first_boundary + i) % 8] == false) {
+				call_next_counter_clockwise(boundary_cell, (first_boundary + i) % 8, stopping_node, false);
+				break;
+			}
+		}
+	}
+}
+/*
 void elliptical_approx::contour_builder(Node* boundary_cell, bool search_left, bool search_right, int last_operation, Node* stopping_node) {
 	// for a given end point; locate its left and right neighbour.
 	bool bounds[4] = { false, false, false, false };
@@ -503,26 +639,22 @@ void elliptical_approx::contour_builder(Node* boundary_cell, bool search_left, b
 	bounds[2] = (boundary_cell->right->type == BASE_EMPTY);
 	bounds[3] = (boundary_cell->top->type == BASE_EMPTY);
 
-	std::cout << " [CELL] : x = " << boundary_cell->x << ", y = " << boundary_cell->y << 
-		". Boundaries : {" << bounds[0] << ", " << bounds[1] << ", " << bounds[2] << ", " << bounds[3] << "}\n";
-	//std::cin.ignore();
-
 	// -- termination step --> if all neighbours are BASE_TAKEN. STOP!!!
 	int first_boundary = -1;
 	for (int i = 0; i < 4; i++) {
-		if (bounds[i]){
+		if (bounds[i]) {
 			first_boundary = i;
 			break;
 		}
-		if (i == 3){
+		if (i == 3) {
 			// checkout for corner boundary (plus-center case) condition
 			// modify the last call to skip this call and forward it to next point
 			if (search_left) {
-				//call_next_left(boundary_cell, (last_operation + 3) % 4, stopping_node);
+				call_next_left(boundary_cell, (last_operation + 3) % 4, stopping_node, true);
 			}
-			if (search_right) {
-				call_next_right(boundary_cell, (last_operation + 1) % 4, stopping_node);
-			}
+			/*if (search_right) {
+				call_next_right(boundary_cell, (last_operation + 1) % 4, stopping_node, true);
+			}*
 			// terminate function here
 			return;
 		}
@@ -530,60 +662,153 @@ void elliptical_approx::contour_builder(Node* boundary_cell, bool search_left, b
 
 	// -- First find the boundary direction (left/right/top/bottom).
 	// first_boundary holds that info;
-	
+
 	// -- move clockwise/anti-clockwise from there to spot neighbour
 	// ** left neighbour : 
-	/*if (search_left) {
+	if (search_left) {
 		for (int i = 1; i < 4; i++) {
 			if (bounds[(first_boundary + i) % 4] == false) {
-				call_next_left(boundary_cell, (first_boundary + i) % 4, stopping_node);
-				break;
-			}
-		}
-	}*/
-	// ** right neighbour : 
-	if (search_right) {
-		for (int i = 1; i < 4; i++) {
-			if (bounds[(4 + first_boundary - i) % 4] == false) {
-				call_next_right(boundary_cell, (4 + first_boundary - i) % 4, stopping_node);
+				call_next_left(boundary_cell, (first_boundary + i) % 4, stopping_node, false);
+				if (i >= 2) {
+					float ptx = boundary_cell->x;
+					float pty = boundary_cell->y;
+					GL_to_image_coords_temp(GRID_WIDTH, GRID_HEIGHT, &ptx, &pty);
+					points_v2.push_back(Point(ptx, pty));
+				}
 				break;
 			}
 		}
 	}
+	/* ** right neighbour :
+	if (search_right) {
+		for (int i = 1; i < 4; i++) {
+			if (bounds[(4 + first_boundary - i) % 4] == false) {
+				call_next_right(boundary_cell, (4 + first_boundary - i) % 4, stopping_node, false);
+				break;
+			}
+		}
+	}*
 }
+*/
+void elliptical_approx::contour_analyzer(int first_index, std::vector<std::vector<strip>>* strips) {
+		render_agent.invalidate();
+	//contour_builder(&node_list->at(first_index), true, false, 0, &node_list->at(first_index));
+	contour_builder_v2(&node_list->at(first_index), true, false, 0, &node_list->at(first_index));
 
-void elliptical_approx::contour_analyzer(void) {
+	Node* start_node = &node_list->at(first_index);
+	Node* next_node = node_list->at(first_index).boundary_left;
+	//render_agent.add_path(Path(start_node, next_node));
+	std::cout << " [PATH] : {(" << start_node->x << ", " << start_node->y << ") ; (" << next_node->x << ", " << next_node->y << ")}\n";
+	float ptx = start_node->x;
+	float pty = start_node->y;
+	GL_to_image_coords_temp(GRID_WIDTH, GRID_HEIGHT, &ptx, &pty);
+	points.at(points.size() - 1).push_back(Point(ptx, pty));
 
+	while (true) {
+		start_node = next_node;
+		next_node = start_node->boundary_left;
+		//render_agent.add_path(Path(start_node, next_node));
+		std::cout << " [PATH] : {(" << start_node->x << ", " << start_node->y << ") ; (" << next_node->x << ", " << next_node->y << ")}\n";
+		float ptx = start_node->x;
+		float pty = start_node->y;
+		GL_to_image_coords_temp(GRID_WIDTH, GRID_HEIGHT, &ptx, &pty);
+		points.at(points.size() - 1).push_back(Point(ptx, pty));
+		if (next_node->x == node_list->at(first_index).x && next_node->y == node_list->at(first_index).y) {
+			std::cout << "extraction_complete\n";
+			break;
+		}
+	}
+	render_agent.invalidate();
+
+	for (int i = 0; i < points.at(points.size() - 1).size(); i++) {
+		render_agent.add_path(
+			Path(
+				points.at(points.size() - 1).at(i % points.at(points.size() - 1).size()).x,
+				points.at(points.size() - 1).at(i % points.at(points.size() - 1).size()).y,
+				points.at(points.size() - 1).at((i + 1) % points.at(points.size() - 1).size()).x,
+				points.at(points.size() - 1).at((i + 1) % points.at(points.size() - 1).size()).y,
+				Color(1.0, 1.0, 1.0)
+			)
+		);
+	}
+	render_agent.invalidate();
+
+	std::vector<std::vector<int>> edges;
+	for (int i = 0; i < GRID_HEIGHT; i++) {
+		edges.push_back({});
+	}
+	for (int i = 0; i < points.at(points.size() - 1).size(); i++) {
+		std::cout << points.at(points.size() - 1).at(i).x << "     " << points.at(points.size() - 1).at(i).y << "\n";
+		int x = points.at(points.size() - 1).at(i).x;
+		int y = points.at(points.size() - 1).at(i).y;
+		edges.at(y).push_back(x);
+		/*for (int j = 0; j < strips->at(y).size(); j++) {
+			int start = strips->at(y).at(j).start;
+			int end = strips->at(y).at(j).end;
+			
+		}*/
+	}
+	for (int i = 0; i<edges.size(); i++) {
+		if (edges.at(i).empty()) {
+			std::cout << "x x x x x\n";
+			continue;
+		}
+		for (int j = 0; j < edges.at(i).size(); j++) {
+			int biggest = edges.at(i).at(j);
+			int index = j;
+			for (int k = j; k < edges.at(i).size(); k++) {
+				if (edges.at(i).at(k) > biggest) {
+					biggest = edges.at(i).at(k);
+					index = k;
+				}
+			}
+			//std::cout << biggest << " ";
+			edges.at(i).erase(edges.at(i).begin() + index);
+			edges.at(i).insert(edges.at(i).begin(), biggest);
+		}
+		std::cout << "Before  : ";
+		for (int j = 0; j < edges.at(i).size(); j++) {
+			std::cout << edges.at(i).at(j) << " ";
+		}
+		std::cout << "\n";
+		for (int j = 0; j < edges.at(i).size(); j++) {
+			Node node = node_list->at(i * GRID_WIDTH + edges.at(i).at(j));
+			std::cout << node.left->type << "   " << node.right->type << "\n";
+				if (node.left->type == BASE_TAKEN && node.right->type == BASE_TAKEN) {
+					edges.at(i).erase(edges.at(i).begin() + j);
+					j--;
+				}
+		}
+		std::cout << "After   : ";
+		for (int j = 0; j < edges.at(i).size(); j++) {
+			std::cout << edges.at(i).at(j) << " ";
+		}
+		std::cout << "\n";
+	}
 }
 
 void elliptical_approx::contour_extractor2(void) {
 	int first_index = -1000;
+	int found_flag = false;
+	std::vector<std::vector<strip>> strips;
 	for (int i = 0; i < GRID_HEIGHT; i++) {
+		strips.push_back({});
+	}
+	for (int i = 0; i < GRID_HEIGHT; i++) {
+		if (found_flag)
+			break;
 		for (int j = 0; j < GRID_WIDTH; j++) {
-			if (node_list->at(i * GRID_HEIGHT + j).type == BASE_TAKEN)
+			if (node_list->at(i * GRID_HEIGHT + j).type == BASE_TAKEN) {
 				first_index = i * GRID_HEIGHT + j;
+				found_flag = true;
+				contour_analyzer(first_index, &strips);
+				break;
+			}
 		}
 	}
 
 	if (first_index < 0 || first_index >= node_list->size())
 		return;
-
-	render_agent.invalidate();
-	contour_builder(&node_list->at(first_index), true, true, 0, &node_list->at(first_index));
-
-	/*Node* start_node = &node_list->at(first_index);
-	Node* next_node = node_list->at(first_index).boundary_left;
-	render_agent.add_path(Path(start_node, next_node));
-	render_agent.invalidate();
-	std::cout << " [PATH] : {(" << start_node->x << ", " << start_node->y << ") ; (" << next_node->x << ", " << next_node->y << ")}\n";
-
-	while (next_node != start_node) {
-		start_node = next_node;
-		next_node = start_node->boundary_left;
-		/*render_agent.add_path(Path(start_node, next_node));
-		render_agent.invalidate();*
-		std::cout << " [PATH] : {(" << start_node->x << ", " << start_node->y << ") ; (" << next_node->x << ", " << next_node->y << ")}\n";
-	}*/
 }
 
 void elliptical_approx::contour_extractor(void) {
@@ -612,7 +837,7 @@ void elliptical_approx::contour_extractor(void) {
 					if (first_index == -5000)
 						first_index = j * GRID_WIDTH + i;
 					node_list->at(j * GRID_WIDTH + i).type = START;
-					points.push_back(Point(i, j));
+					points.at(points.size() - 1).push_back(Point(i, j));
 					std::cout << " [" << i << ", " << j << "], ";
 					if (left_bound > i)
 						left_bound = i;
@@ -745,7 +970,7 @@ double elliptical_approx::rateCurveElliptical(const column_vector& params)
 
 	double distances = 0;
 
-	for (Point target : points)
+	for (Point target : points.at(points.size() - 1))
 	{
 		double distance = _DMAX;
 
@@ -814,6 +1039,37 @@ float length(int x1, int y1, int x2, int y2) {
 	return len;
 }
 
+float convex_clustering::ear_area_2(std::vector<int>* ear, std::vector<result>* filter, bool special) {
+	float area = 0;
+	bool pure = false;
+	for (int i = 2; i < ear->size(); i++) {
+		float del_area = area_triangle(points.at(ear->at(0)).x, points.at(ear->at(0)).y,
+			points.at(ear->at(i - 1)).x, points.at(ear->at(i - 1)).y,
+			points.at(ear->at(i)).x, points.at(ear->at(i)).y);
+		area += del_area;
+		if (area / del_area > 0)
+			pure = true;
+		else
+			pure = false;
+	}
+
+	float bridge_width = length(points.at(ear->at(0)).x, points.at(ear->at(0)).y,
+		points.at(ear->at(ear->size() - 1)).x, points.at(ear->at(ear->size() - 1)).y);
+	float independency_factor = area / bridge_width;
+	float skewness = independency_factor / bridge_width;
+
+	if (independency_factor > 0.3 || special) {
+		printf("area = %f. factor = %f. vertices = %d. bridge_width = %f. skewness = %f\n",
+			area, independency_factor, ear->size(), bridge_width, skewness);
+		filter->push_back(result(ear->at(0), area, independency_factor, ear->size(), bridge_width, skewness));
+		render_agent->visualize_ear_2(&points, ear, false);
+	}
+	else
+		render_agent->visualize_ear_2(&points, ear, true);
+
+	return independency_factor;
+}
+
 float ear_area(std::vector<int>* ear, int data_x[], int data_y[], local_visualizer* render_agent, std::vector<result>* filter, bool special) {
 	float area = 0;
 	bool pure = false;
@@ -836,12 +1092,12 @@ float ear_area(std::vector<int>* ear, int data_x[], int data_y[], local_visualiz
 		render_agent->visualize_ear(data_x, data_y, ear, false);
 	else
 		render_agent->visualize_ear(data_x, data_y, ear, true);*/
-	/*if (area > 0) {
-		render_agent->visualize_ear(data_x, data_y, ear, false);
-		printf("area = %f. factor = %f. vertices = %d. bridge_width = %f. skewness = %f\n",
-			area, independency_factor, ear->size(), bridge_width, skewness);
-		filter->push_back(ear->at(0));
-	}*/
+		/*if (area > 0) {
+			render_agent->visualize_ear(data_x, data_y, ear, false);
+			printf("area = %f. factor = %f. vertices = %d. bridge_width = %f. skewness = %f\n",
+				area, independency_factor, ear->size(), bridge_width, skewness);
+			filter->push_back(ear->at(0));
+		}*/
 	if (independency_factor > 0.1 || special) {
 		render_agent->visualize_ear(data_x, data_y, ear, false);
 		printf("area = %f. factor = %f. vertices = %d. bridge_width = %f. skewness = %f\n",
@@ -1005,6 +1261,22 @@ void convex_clustering::clustering(void) {
 	render_agent->draw_ears(data_x, data_y, &poly_indice);
 }
 
+void convex_clustering::filter_dimples_2(std::vector<result>* traversal, std::vector<result>* filter, int filter_size) {
+	std::cout << " length = " << data_size << "\n";
+	for (int i = 0; i < traversal->size(); i++) {
+		std::vector<int> ear;
+		for (int k = 0; k < filter_size; k++) {
+			//std::cout << ((traversal->at(i).i + k) % data_size) << "\n";
+			ear.push_back((traversal->at(i).i + k) % data_size);
+		}
+		ear_area_2(&ear, filter, false);
+	}
+	std::cin.ignore();
+	std::cout << "Clearing out paths\n";
+	render_agent->clear_path();
+	std::cin.ignore();
+}
+
 void convex_clustering::filter_dimples(std::vector<result>* traversal, std::vector<result>* filter, int filter_size) {
 	std::cout << " length = " << data_size << "\n";
 	for (int i = 0; i < traversal->size(); i++) {
@@ -1047,10 +1319,52 @@ void convex_clustering::cleaning_dimples(std::vector<result>* dimples) {
 	}
 }
 
+void convex_clustering::clustrify_v2(std::vector<result>* dimples, std::vector<std::vector<int>>* clustered_data) {
+	int PARAM_CLUSTER_FACTOR_THRESHOLD = 10;
+	int PARAM_FILTER_SIZE_CENTER_OFFSET_VAL = 2;
+	std::vector<result> results;
+
+	std::cout << "Following pairs will be joinined \n";
+	for (int i = 0; i < dimples->size(); i++) {
+		std::vector<int> ear;
+		int start = (dimples->at((i) % dimples->size()).i + PARAM_FILTER_SIZE_CENTER_OFFSET_VAL)%data_size;
+		int end = (dimples->at((i + 1) % dimples->size()).i + PARAM_FILTER_SIZE_CENTER_OFFSET_VAL) % data_size;
+		if (end < start)
+			end += data_size;
+		for (int k = start; k <= end; k++) {
+			//std::cout << ((k) % data_size) << "\n";
+			ear.push_back((k) % data_size);
+		}
+		ear_area_2(&ear, &results, true);
+		if (abs(results.at(results.size() - 1).independence) > PARAM_CLUSTER_FACTOR_THRESHOLD) {
+			std::cout << start % data_size << " will be joinined with " << end % data_size << "\n";
+			// add new poly-loop to poly-indices
+			clustered_data->push_back({});
+			int index = clustered_data->size() - 1;
+			for (int i = start; i <= end; i++) {
+				clustered_data->at(index).push_back(i % data_size);
+			}
+			print_poly_indice(clustered_data);
+			// cut that part from original poly
+			for (int k = 0; k < clustered_data->at(0).size(); k++) {
+				if (clustered_data->at(0).at(k) == start + 1) {
+					for (int i = start + 1; i < end; i++) {
+						if (k < clustered_data->at(0).size())
+							clustered_data->at(0).erase(clustered_data->at(0).begin() + k);
+						else
+							clustered_data->at(0).erase(clustered_data->at(0).begin());
+					}
+					break;
+				}
+			}
+		}
+	}
+}
+
 void convex_clustering::clustrify(std::vector<result>* dimples, std::vector<std::vector<int>>* clustered_data) {
 	int PARAM_CLUSTER_FACTOR_THRESHOLD = 10;
 	std::vector<result> results;
-	
+
 
 	std::cout << "Following pairs will be joinined \n";
 	for (int i = 0; i < dimples->size(); i++) {
@@ -1070,7 +1384,7 @@ void convex_clustering::clustrify(std::vector<result>* dimples, std::vector<std:
 			clustered_data->push_back({});
 			int index = clustered_data->size() - 1;
 			for (int i = start; i <= end; i++) {
-					clustered_data->at(index).push_back(i % data_size);
+				clustered_data->at(index).push_back(i % data_size);
 			}
 			print_poly_indice(clustered_data);
 			// cut that part from original poly
@@ -1087,6 +1401,95 @@ void convex_clustering::clustrify(std::vector<result>* dimples, std::vector<std:
 			}
 		}
 	}
+}
+
+void convex_clustering::clustering_3(std::vector<Node>* node_list, int GRID_WIDTH, std::vector<Point> points) {
+	this->points = points;
+	std::vector<result> initial_list;
+	data_size = points.size();
+	for (int i = 0; i < data_size; i++) {
+		initial_list.push_back(result(i));
+	}
+
+	//locating dimples
+	std::vector<result> filtered;
+
+	// setting up iterators for vertices list
+	std::vector<result>* old_vertices_set, * updated_vertices_set;
+	old_vertices_set = &initial_list;
+	updated_vertices_set = &filtered;
+
+	int filters[4] = {8, 5, 3 };
+
+	for (int i = 0; i < 2; i++) {
+		filter_dimples_2(old_vertices_set, updated_vertices_set, filters[i]);
+		
+		// transfer the new content to old list
+		std::vector<result>* temp = old_vertices_set;
+		old_vertices_set = updated_vertices_set;
+		updated_vertices_set = temp;
+		updated_vertices_set->clear();
+	}
+
+	for (int i = 0; i < old_vertices_set->size(); i++) {
+		std::cout << old_vertices_set->at(i).i << "     " << old_vertices_set->at(i).area << "     " << old_vertices_set->at(i).independence << "\n";
+	}
+
+	// extracting good dimples
+	for (int i = 0; i < old_vertices_set->size(); i++) {
+		if (old_vertices_set->at((i + 1) % old_vertices_set->size()).i - old_vertices_set->at(i).i == 1) {
+			// new set of interest zone
+			std::cout << "interest zone starts at : " << i;
+			float max_factor = old_vertices_set->at(i).independence;
+			int best_index = i;
+			for (int j = 1; j < old_vertices_set->size(); j++) {
+				int i_th_index = old_vertices_set->at((i + j) % old_vertices_set->size()).i;
+				int last_index = old_vertices_set->at((i + j-1) % old_vertices_set->size()).i;
+				if (i_th_index < last_index)
+					i_th_index += data_size;
+
+				if (i_th_index - last_index > 1) {
+					// end of that set
+					updated_vertices_set->push_back(old_vertices_set->at(best_index));
+					std::cout << " best performer was : " << old_vertices_set->at(best_index).i << ". factor = " << max_factor << "\n";
+					i = (i + j) - 1;
+					break;
+				}
+				if (old_vertices_set->at((i + j) % old_vertices_set->size()).independence > max_factor) {
+					max_factor = old_vertices_set->at((i + j) % old_vertices_set->size()).independence;
+					best_index = (i + j) % old_vertices_set->size();
+				}
+			}
+		}
+	}
+	std::vector<result>* temp = old_vertices_set;
+	old_vertices_set = updated_vertices_set;
+	updated_vertices_set = temp;
+	updated_vertices_set->clear();
+	
+	//highlights extracted dimples
+	for (int i = 0; i < old_vertices_set->size(); i++) {
+		std::cout << old_vertices_set->at(i).i + 2 << "\n";
+		node_list->at(points[old_vertices_set->at(i).i + 2].y * GRID_WIDTH + points[old_vertices_set->at(i).i + 2].x).type = START;
+	}
+
+	// pair dimples
+	std::vector<std::vector<int>> clustered_data = { {} };
+	for (int i = 0; i < data_size; i++) {
+		clustered_data.at(0).push_back(i);
+	}
+	clustrify_v2(old_vertices_set, &clustered_data);
+
+	std::cout << "final outcome\n";
+	print_poly_indice(&clustered_data);
+
+
+	std::cin.ignore();
+	std::cout << "Clearing out paths\n";
+	render_agent->clear_path();
+	std::cin.ignore();
+
+	render_agent->draw_ears_v2(&points, &clustered_data);
 }
 
 void convex_clustering::clustering_2(std::vector<Node>* node_list, int GRID_WIDTH) {
@@ -1110,10 +1513,10 @@ void convex_clustering::clustering_2(std::vector<Node>* node_list, int GRID_WIDT
 
 	/*std::vector<result> fourth_filter;
 	filter_dimples(&second_filter, &fourth_filter, 3);*/
-	
+
 	// extracting good dimples
 	cleaning_dimples(&fourth_filter);
-	
+
 	//highlights extracted dimples
 	for (int i = 0; i < fourth_filter.size(); i++) {
 		std::cout << fourth_filter[i].i + 1 << "\n";

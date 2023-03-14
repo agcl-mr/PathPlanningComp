@@ -13,6 +13,14 @@ struct Point {
 	double x, y;
 };
 
+struct strip {
+	int start, end;
+	strip(int start, int end) {
+		this->start = start;
+		this->end = end;
+	}
+};
+
 struct Line {
 	float x1, y1, x2, y2;
 };
@@ -82,7 +90,11 @@ public:
 
 	void draw_ellipse(ellipse ellipse);
 
+	void draw_ears_v2(std::vector<Point>* points, std::vector<std::vector<int>>* poly_indice);
+
 	void draw_ears(int data_x[], int data_y[], std::vector<std::vector<int>>* poly_indice);
+
+	void visualize_ear_2(std::vector<Point>* points, std::vector<int>* ear, bool clear_again);
 
 	void visualize_ear(int data_x[], int data_y[], std::vector<int>* ear, bool clear_again);
 
@@ -100,12 +112,19 @@ private:
 
 class convex_clustering {
 public:
+	float ear_area_2(std::vector<int>* ear, std::vector<result>* filter, bool special);
+
+	void filter_dimples_2(std::vector<result>* traversal, std::vector<result>* filter, int filter_size);
 
 	void filter_dimples(std::vector<result>* traversal, std::vector<result>* filter, int filter_size);
 
 	void cleaning_dimples(std::vector<result>* dimples);
 
+	void clustrify_v2(std::vector<result>* dimples, std::vector<std::vector<int>>* clustered_data);
+
 	void clustrify(std::vector<result>* dimples, std::vector<std::vector<int>>* clustered_data);
+
+	void clustering_3(std::vector<Node>* node_list, int GRID_WIDTH, std::vector<Point> points);
 
 	void clustering_2(std::vector<Node>* node_list, int GRID_WIDTH);
 
@@ -128,6 +147,7 @@ private:
 	int data_size = 0;
 	int data_x[107] = { 23, 20, 17, 17, 15, 15, 14, 14, 13, 13, 12, 12, 13, 13, 14, 14, 15, 15, 17, 17, 19, 19, 23, 26, 28, 31, 31, 32, 32, 33, 33, 34, 34, 35, 35, 36, 55, 55, 56, 56, 57, 57, 58, 58, 60, 60, 62, 62, 66, 69, 73, 73, 75, 75, 77, 77, 78, 78, 79, 79, 80, 80, 79, 79, 78, 78, 77, 77, 75, 75, 73, 73, 72, 70, 65, 64, 64, 60, 59, 57, 56, 54, 53, 51, 50, 48, 46, 45, 41, 40, 38, 36, 36, 37, 37, 36, 36, 35, 35, 34, 34, 32, 32, 30, 30, 29, 27 };
 	int data_y[107] = { 12, 13, 16, 17, 19, 20, 21, 23, 24, 29, 30, 38, 39, 44, 45, 47, 48, 49, 51, 52, 53, 54, 56, 56, 55, 55, 56, 57, 59, 60, 62, 63, 64, 65, 67, 68, 69, 76, 77, 82, 83, 85, 86, 87, 89, 90, 91, 92, 94, 94, 92, 91, 90, 89, 87, 86, 85, 83, 82, 77, 76, 67, 66, 62, 61, 59, 58, 57, 55, 54, 53, 52, 51, 50, 49, 48, 47, 45, 44, 43, 42, 41, 40, 39, 38, 37, 37, 38, 40, 41, 42, 42, 39, 38, 29, 28, 24, 23, 21, 20, 19, 17, 16, 15, 14, 13, 12 };
+	std::vector<Point> points;
 };
 
 class elliptical_approx {
@@ -151,7 +171,7 @@ private:
 	std::vector<Node>* node_list;
 	std::vector<polygon2D> obstacles;
 	local_visualizer render_agent;
-	std::vector<Point> points;
+	std::vector<std::vector<Point>> points = { {} };
 	convex_clustering* cluster;
 
 	class coord {
@@ -175,13 +195,17 @@ private:
 
 	void contour_extractor2(void);
 
-	void contour_builder(Node* boundary_cell, bool search_left, bool search_right, int last_operation, Node* stopping_node);
+	void contour_builder_v2(Node* boundary_cell, bool search_left, bool search_right, int last_operation, Node* stopping_node);
 
-	void call_next_left(Node* boundary_cell, int dir, Node* stopping_node);
+	//void contour_builder(Node* boundary_cell, bool search_left, bool search_right, int last_operation, Node* stopping_node);
+	
+	void call_next_counter_clockwise(Node* boundary_cell, int dir, Node* stopping_node, bool forward);
+	
+	void call_next_left(Node* boundary_cell, int dir, Node* stopping_node, bool forward);
 
-	void call_next_right(Node* boundary_cell, int dir, Node* stopping_node);
+	void call_next_right(Node* boundary_cell, int dir, Node* stopping_node, bool forward);
 
-	void contour_analyzer(void);
+	void contour_analyzer(int first_index, std::vector<std::vector<strip>>* strips);
 
 	int contour_explorer(Node* node, bool* travel_list, int this_node_index, int remaining_nodes, int start, int pass);
 
