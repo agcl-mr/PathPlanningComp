@@ -226,7 +226,7 @@ void elliptical_approx::init(std::vector<Node>* node_list, int width, int height
 	//cluster->clustering_2(node_list, GRID_WIDTH);
 	//cluster->clustering_3(node_list, GRID_WIDTH, points);
 }
-
+/*
 void elliptical_approx::merge_strips(int row, int index2, polygon2D* obstacle, std::vector<std::vector<coord>>* strips_list) {
 	obstacle->vertices.push_back(strips_list->at(row).at(index2).a);
 	if (obstacle->looseBounds.bottom < row)
@@ -433,7 +433,7 @@ void elliptical_approx::find_ellipse1(void) {
 				//if (up != down || left != right)
 				if (map[j - 1][i] != map[j + 1][i] || map[j][i - 1] != map[j][i + 1]) {
 					node_list->at(j * GRID_WIDTH + i).type = START;
-					points.at(points.size() - 1).push_back(Point(i, j));
+					points.at(points.size() - 1).push_back(int_point(i, j));
 					if (left_bound > i)
 						left_bound = i;
 					if (right_bound < i)
@@ -478,7 +478,7 @@ void elliptical_approx::find_ellipse1(void) {
 			return this->rateCurveElliptical(a);
 		},
 		params,
-			-1);*/
+			-1);*
 	column_vector lb = {0,0,0,0, 0};
 	column_vector ub = { 1, 1, 1, 1, 1 };
 
@@ -506,7 +506,7 @@ void elliptical_approx::find_ellipse1(void) {
 
 	this->render_agent.draw_ellipse(ellipse(params(0, 0), params(1, 0), params(2, 0), params(3, 0), params(4, 0) * PI / 180));
 }
-
+*/
 void elliptical_approx::call_next_counter_clockwise(Node* boundary_cell, int dir, Node* stopping_node, bool forward) {
 	Node* next_node = nullptr;
 	switch (dir) {
@@ -531,79 +531,65 @@ void elliptical_approx::call_next_counter_clockwise(Node* boundary_cell, int dir
 	}
 	contour_builder_v2(next_node, true, false, dir, stopping_node);
 }
-/*
-void elliptical_approx::call_next_left(Node* boundary_cell, int dir, Node* stopping_node, bool forward) {
-	Node* next_node = nullptr;
-	switch (dir) {
-	case 0:		next_node = boundary_cell->left;		break;
-	case 1:		next_node = boundary_cell->bottom;		break;
-	case 2:		next_node = boundary_cell->right;		break;
-	case 3:		next_node = boundary_cell->top;			break;
-	default:	next_node = nullptr;					break;
-	}
 
-	if (forward) {
-		boundary_cell->boundary_right->boundary_left = next_node;
-		next_node->boundary_right = boundary_cell->boundary_right;
-		boundary_cell->boundary_right = nullptr;
-	}
-	else {
-		boundary_cell->boundary_left = next_node;
-		next_node->boundary_right = boundary_cell;
-	}
-	if (next_node->x == stopping_node->x && next_node->y == stopping_node->y) {
-		//if (next_node == stopping_node) {
-		std::cout << "breaking out...\n";
-		return;
-	}
-	contour_builder(next_node, true, false, dir, stopping_node);
-}
-
-void elliptical_approx::call_next_right(Node* boundary_cell, int dir, Node* stopping_node, bool forward) {
-	Node* next_node = nullptr;
-	switch (dir) {
-	case 0:		next_node = boundary_cell->left;		break;
-	case 1:		next_node = boundary_cell->bottom;		break;
-	case 2:		next_node = boundary_cell->right;		break;
-	case 3:		next_node = boundary_cell->top;			break;
-	default:	next_node = nullptr;					break;
-	}
-	if (true) {
-		boundary_cell->boundary_right = next_node;
-		next_node->boundary_left = boundary_cell;
-	}
-	if (next_node->x == stopping_node->x && next_node->y==stopping_node->y){
-	//if (next_node == stopping_node) {
-		std::cout << "breaking out...\n";
-		return;
-	}
-	contour_builder(next_node, false, true, dir, stopping_node);
-}
-*/
-void GL_to_image_coords_temp(int GRID_WIDTH, int GRID_HEIGHT, float* x_GL, float* y_GL) {
-	float temp_x = *x_GL;
-	float temp_y = *y_GL;
+void GL_to_image_coords_temp(int GRID_WIDTH, int GRID_HEIGHT, float x_GL, float y_GL, int* x_GL_int, int* y_GL_int) {
 	float x_off = (float)GRID_WIDTH / 2;
 	float y_off = (float)GRID_HEIGHT / 2;
 	int scale = ((GRID_WIDTH) > (GRID_HEIGHT) ? (GRID_WIDTH) : (GRID_HEIGHT)) / 2;
 
-	float x_image = temp_x * scale + x_off;
-	float y_image = y_off - temp_y * scale;
-	*x_GL = x_image;
-	*y_GL = y_image;
+	float x_image = x_GL * scale + x_off;
+	float y_image = y_off - y_GL * scale;
+	*x_GL_int = round(x_image * 100) / 100;
+	*y_GL_int = round(y_image * 100) / 100;
 }
 
 void elliptical_approx::contour_builder_v2(Node* boundary_cell, bool search_left, bool search_right, int last_operation, Node* stopping_node) {
 	// for a given end point; locate its left and right neighbour.
 	bool bounds[8] = { false, false, false, false, false, false, false, false };
-	bounds[0] = (boundary_cell->left->type == BASE_EMPTY);
-	bounds[1] = (boundary_cell->left->bottom->type == BASE_EMPTY);
-	bounds[2] = (boundary_cell->bottom->type == BASE_EMPTY);
-	bounds[3] = (boundary_cell->bottom->right->type == BASE_EMPTY);
-	bounds[4] = (boundary_cell->right->type == BASE_EMPTY);
-	bounds[5] = (boundary_cell->right->top->type == BASE_EMPTY);
-	bounds[6] = (boundary_cell->top->type == BASE_EMPTY);
-	bounds[7] = (boundary_cell->top->left->type == BASE_EMPTY);
+	if (boundary_cell->left == nullptr) {
+		bounds[0] = true;
+		bounds[1] = true;
+	}
+	else {
+		bounds[0] = (boundary_cell->left->type == BASE_EMPTY);
+		if (boundary_cell->left->bottom == nullptr)
+			bounds[1] = true;
+		else
+			bounds[1] = (boundary_cell->left->bottom->type == BASE_EMPTY);
+	}
+	if (boundary_cell->bottom == nullptr) {
+		bounds[2] = true;
+		bounds[3] = true;
+	}
+	else {
+		bounds[2] = (boundary_cell->bottom->type == BASE_EMPTY);
+		if (boundary_cell->bottom->right == nullptr)
+			bounds[3] = true;
+		else
+			bounds[3] = (boundary_cell->bottom->right->type == BASE_EMPTY);
+	}
+	if (boundary_cell->right == nullptr) {
+		bounds[4] = true;
+		bounds[5] = true;
+	}
+	else {
+		bounds[4] = (boundary_cell->right->type == BASE_EMPTY);
+		if (boundary_cell->right->top == nullptr)
+			bounds[5] = true;
+		else
+			bounds[5] = (boundary_cell->right->top->type == BASE_EMPTY);
+	}
+	if (boundary_cell->top == nullptr) {
+		bounds[6] = true;
+		bounds[7] = true;
+	}
+	else {
+		bounds[6] = (boundary_cell->top->type == BASE_EMPTY);
+		if (boundary_cell->top->left == nullptr)
+			bounds[7] = true;
+		else
+			bounds[7] = (boundary_cell->top->left->type == BASE_EMPTY);
+	}
 
 	// -- termination step --> if all neighbours are BASE_TAKEN. STOP!!!
 	int first_boundary = -1;
@@ -630,89 +616,19 @@ void elliptical_approx::contour_builder_v2(Node* boundary_cell, bool search_left
 		}
 	}
 }
-/*
-void elliptical_approx::contour_builder(Node* boundary_cell, bool search_left, bool search_right, int last_operation, Node* stopping_node) {
-	// for a given end point; locate its left and right neighbour.
-	bool bounds[4] = { false, false, false, false };
-	bounds[0] = (boundary_cell->left->type == BASE_EMPTY);
-	bounds[1] = (boundary_cell->bottom->type == BASE_EMPTY);
-	bounds[2] = (boundary_cell->right->type == BASE_EMPTY);
-	bounds[3] = (boundary_cell->top->type == BASE_EMPTY);
 
-	// -- termination step --> if all neighbours are BASE_TAKEN. STOP!!!
-	int first_boundary = -1;
-	for (int i = 0; i < 4; i++) {
-		if (bounds[i]) {
-			first_boundary = i;
-			break;
-		}
-		if (i == 3) {
-			// checkout for corner boundary (plus-center case) condition
-			// modify the last call to skip this call and forward it to next point
-			if (search_left) {
-				call_next_left(boundary_cell, (last_operation + 3) % 4, stopping_node, true);
-			}
-			/*if (search_right) {
-				call_next_right(boundary_cell, (last_operation + 1) % 4, stopping_node, true);
-			}*
-			// terminate function here
-			return;
-		}
-	}
-
-	// -- First find the boundary direction (left/right/top/bottom).
-	// first_boundary holds that info;
-
-	// -- move clockwise/anti-clockwise from there to spot neighbour
-	// ** left neighbour : 
-	if (search_left) {
-		for (int i = 1; i < 4; i++) {
-			if (bounds[(first_boundary + i) % 4] == false) {
-				call_next_left(boundary_cell, (first_boundary + i) % 4, stopping_node, false);
-				if (i >= 2) {
-					float ptx = boundary_cell->x;
-					float pty = boundary_cell->y;
-					GL_to_image_coords_temp(GRID_WIDTH, GRID_HEIGHT, &ptx, &pty);
-					points_v2.push_back(Point(ptx, pty));
-				}
-				break;
-			}
-		}
-	}
-	/* ** right neighbour :
-	if (search_right) {
-		for (int i = 1; i < 4; i++) {
-			if (bounds[(4 + first_boundary - i) % 4] == false) {
-				call_next_right(boundary_cell, (4 + first_boundary - i) % 4, stopping_node, false);
-				break;
-			}
-		}
-	}*
-}
-*/
-void elliptical_approx::contour_analyzer(int first_index, std::vector<std::vector<strip>>* strips) {
-		render_agent.invalidate();
-	//contour_builder(&node_list->at(first_index), true, false, 0, &node_list->at(first_index));
-	contour_builder_v2(&node_list->at(first_index), true, false, 0, &node_list->at(first_index));
-
-	Node* start_node = &node_list->at(first_index);
-	Node* next_node = node_list->at(first_index).boundary_left;
+void elliptical_approx::boundary_pointers_network_to_points_list(Node* start_node, Node* next_node,int first_index, int poly_index) {
 	//render_agent.add_path(Path(start_node, next_node));
-	std::cout << " [PATH] : {(" << start_node->x << ", " << start_node->y << ") ; (" << next_node->x << ", " << next_node->y << ")}\n";
-	float ptx = start_node->x;
-	float pty = start_node->y;
-	GL_to_image_coords_temp(GRID_WIDTH, GRID_HEIGHT, &ptx, &pty);
-	points.at(points.size() - 1).push_back(Point(ptx, pty));
+	int ptx, pty;
+	GL_to_image_coords_temp(GRID_WIDTH, GRID_HEIGHT, start_node->x, start_node->y, &ptx, &pty);
+	points.at(poly_index).push_back(int_point(ptx, pty));
 
 	while (true) {
 		start_node = next_node;
 		next_node = start_node->boundary_left;
-		//render_agent.add_path(Path(start_node, next_node));
-		std::cout << " [PATH] : {(" << start_node->x << ", " << start_node->y << ") ; (" << next_node->x << ", " << next_node->y << ")}\n";
-		float ptx = start_node->x;
-		float pty = start_node->y;
-		GL_to_image_coords_temp(GRID_WIDTH, GRID_HEIGHT, &ptx, &pty);
-		points.at(points.size() - 1).push_back(Point(ptx, pty));
+		int ptx, pty;
+		GL_to_image_coords_temp(GRID_WIDTH, GRID_HEIGHT, start_node->x, start_node->y, &ptx, &pty);
+		points.at(poly_index).push_back(int_point(ptx, pty));
 		if (next_node->x == node_list->at(first_index).x && next_node->y == node_list->at(first_index).y) {
 			std::cout << "extraction_complete\n";
 			break;
@@ -720,34 +636,48 @@ void elliptical_approx::contour_analyzer(int first_index, std::vector<std::vecto
 	}
 	render_agent.invalidate();
 
-	for (int i = 0; i < points.at(points.size() - 1).size(); i++) {
+	// add these boundary paths to render queue
+	for (int i = 0; i < points.at(poly_index).size(); i++) {
 		render_agent.add_path(
 			Path(
-				points.at(points.size() - 1).at(i % points.at(points.size() - 1).size()).x,
-				points.at(points.size() - 1).at(i % points.at(points.size() - 1).size()).y,
-				points.at(points.size() - 1).at((i + 1) % points.at(points.size() - 1).size()).x,
-				points.at(points.size() - 1).at((i + 1) % points.at(points.size() - 1).size()).y,
+				points.at(poly_index).at(i % points.at(poly_index).size()).x,
+				points.at(poly_index).at(i % points.at(poly_index).size()).y,
+				points.at(poly_index).at((i + 1) % points.at(poly_index).size()).x,
+				points.at(poly_index).at((i + 1) % points.at(poly_index).size()).y,
 				Color(1.0, 1.0, 1.0)
 			)
 		);
 	}
 	render_agent.invalidate();
+}
 
+void elliptical_approx::contour_analyzer(int first_index, std::vector<std::vector<strip>>* strips) {
+	render_agent.invalidate();
+	// build boundary pointers network
+	contour_builder_v2(&node_list->at(first_index), true, false, 0, &node_list->at(first_index));
+
+	// add a new entry for this polygon
+	points.push_back(std::vector<int_point>());
+	int poly_index = points.size() - 1;
+
+	Node* start_node = &node_list->at(first_index);
+	Node* next_node = node_list->at(first_index).boundary_left;
+	boundary_pointers_network_to_points_list(start_node, next_node, first_index, poly_index);
+
+	// store this boundary point data with "y" as key and "x" as field
 	std::vector<std::vector<int>> edges;
 	for (int i = 0; i < GRID_HEIGHT; i++) {
-		edges.push_back({});
+		edges.push_back(std::vector<int>());
 	}
-	for (int i = 0; i < points.at(points.size() - 1).size(); i++) {
-		std::cout << points.at(points.size() - 1).at(i).x << "     " << points.at(points.size() - 1).at(i).y << "\n";
-		int x = points.at(points.size() - 1).at(i).x;
-		int y = points.at(points.size() - 1).at(i).y;
-		edges.at(y).push_back(x);
-		/*for (int j = 0; j < strips->at(y).size(); j++) {
-			int start = strips->at(y).at(j).start;
-			int end = strips->at(y).at(j).end;
-			
-		}*/
+	for (int i = 0; i < points.at(poly_index).size(); i++) {
+		int_point cell_point = points.at(poly_index).at(i);
+		int cell_x = cell_point.x;
+		int cell_y = cell_point.y;
+		
+		edges.at(cell_y).push_back(cell_x);
 	}
+
+	// for each "y" key in edges. sort "x" values and trim out unnecessary ones
 	for (int i = 0; i<edges.size(); i++) {
 		if (edges.at(i).empty()) {
 			std::cout << "x x x x x\n";
@@ -766,118 +696,80 @@ void elliptical_approx::contour_analyzer(int first_index, std::vector<std::vecto
 			edges.at(i).erase(edges.at(i).begin() + index);
 			edges.at(i).insert(edges.at(i).begin(), biggest);
 		}
-		std::cout << "Before  : ";
-		for (int j = 0; j < edges.at(i).size(); j++) {
-			std::cout << edges.at(i).at(j) << " ";
-		}
-		std::cout << "\n";
 		for (int j = 0; j < edges.at(i).size(); j++) {
 			Node node = node_list->at(i * GRID_WIDTH + edges.at(i).at(j));
-			std::cout << node.left->type << "   " << node.right->type << "\n";
-				if (node.left->type == BASE_TAKEN && node.right->type == BASE_TAKEN) {
-					edges.at(i).erase(edges.at(i).begin() + j);
-					j--;
-				}
+			//std::cout << node.left->type << "   " << node.right->type << "\n";
+			bool flag_left_taken = false;
+			bool flag_right_taken = false;
+			if (node.left != nullptr)
+				flag_left_taken = (node.left->type == BASE_TAKEN);
+			if (node.right != nullptr)
+				flag_right_taken = (node.right->type == BASE_TAKEN);
+
+			if (flag_left_taken && flag_right_taken) {
+				edges.at(i).erase(edges.at(i).begin() + j);
+				j--;
+			}
 		}
-		std::cout << "After   : ";
 		for (int j = 0; j < edges.at(i).size(); j++) {
 			std::cout << edges.at(i).at(j) << " ";
 		}
 		std::cout << "\n";
+	}
+
+	// append these edge info to strips list
+	for (int i = 0; i < edges.size(); i++) {
+		for (int j = 0; j < edges.at(i).size(); j++) {
+			if (edges.at(i).empty())
+				continue;
+			int start = edges.at(i).at(0);
+			int end = edges.at(i).at(1);
+			for (int k = 0; k < strips->at(i).size(); k++) {
+				if (end < strips->at(i).at(k).start) {
+					strips->at(i).insert(strips->at(i).begin() + k, strip(start, end));
+					edges.at(i).erase(edges.at(i).begin());
+					edges.at(i).erase(edges.at(i).begin());
+					break;
+				}
+			}
+			if (!edges.at(i).empty()) {
+				if (edges.at(i).at(0) == start) {
+					strips->at(i).push_back(strip(start, end));
+					edges.at(i).erase(edges.at(i).begin());
+					edges.at(i).erase(edges.at(i).begin());
+					continue;
+				}
+			}
+		}
 	}
 }
 
 void elliptical_approx::contour_extractor2(void) {
 	int first_index = -1000;
-	int found_flag = false;
 	std::vector<std::vector<strip>> strips;
 	for (int i = 0; i < GRID_HEIGHT; i++) {
 		strips.push_back({});
 	}
 	for (int i = 0; i < GRID_HEIGHT; i++) {
-		if (found_flag)
-			break;
 		for (int j = 0; j < GRID_WIDTH; j++) {
-			if (node_list->at(i * GRID_HEIGHT + j).type == BASE_TAKEN) {
-				first_index = i * GRID_HEIGHT + j;
-				found_flag = true;
+			bool continue_flag = false;
+			for (int k = 0; k < strips.at(i).size(); k++) {
+				if (strips.at(i).at(k).start <= j && strips.at(i).at(k).end>=j) {
+					j = strips.at(i).at(k).end;
+					continue_flag = true;
+					break;
+				}
+			}
+			if (continue_flag) {
+				continue;
+			}
+
+			if (node_list->at(i * GRID_WIDTH + j).type == BASE_TAKEN) {
+				first_index = i * GRID_WIDTH + j;
 				contour_analyzer(first_index, &strips);
-				break;
 			}
 		}
 	}
-
-	if (first_index < 0 || first_index >= node_list->size())
-		return;
-}
-
-void elliptical_approx::contour_extractor(void) {
-	std::cout << GRID_WIDTH << std::endl;
-	int** map = new int* [GRID_HEIGHT];
-	int left_bound = GRID_WIDTH - 1, right_bound = 0, top_bound = GRID_HEIGHT - 1, bottom_bound = 0;
-	int first_index = -5000;
-
-	for (int i = 0; i < GRID_HEIGHT; i++) {
-		map[i] = new int[GRID_WIDTH];
-	}
-	for (int i = 0; i < GRID_HEIGHT; i++) {
-		for (int j = 0; j < GRID_WIDTH; j++) {
-			map[i][j] = node_list->at(i * GRID_WIDTH + j).type;
-		}
-	}
-	for (int j = 0; j < GRID_HEIGHT; j++) {
-		for (int i = 0; i < GRID_WIDTH; i++) {
-			if (j > 0 && i > 0 && j < GRID_HEIGHT - 1 && i < GRID_WIDTH - 1) {
-				int up = node_list->at((j - 1) * GRID_WIDTH + i).type;
-				int down = node_list->at((j + 1) * GRID_WIDTH + i).type;
-				int left = node_list->at(j * GRID_WIDTH + (i - 1)).type;
-				int right = node_list->at(j * GRID_WIDTH + (i + 1)).type;
-				//if (up != down || left != right)
-				if (map[j - 1][i] != map[j + 1][i] || map[j][i - 1] != map[j][i + 1]) {
-					if (first_index == -5000)
-						first_index = j * GRID_WIDTH + i;
-					node_list->at(j * GRID_WIDTH + i).type = START;
-					points.at(points.size() - 1).push_back(Point(i, j));
-					std::cout << " [" << i << ", " << j << "], ";
-					if (left_bound > i)
-						left_bound = i;
-					if (right_bound < i)
-						right_bound = i;
-					if (top_bound > j)
-						top_bound = j;
-					if (bottom_bound < j)
-						bottom_bound = j;
-				}
-				else {
-					node_list->at(j * GRID_WIDTH + i).type = GOAL;
-				}
-			}
-		}
-	}
-
-	bool* travel_list = new bool[node_list->size()];
-	for (int i = 0; i < node_list->size(); i++)
-		travel_list[i] = false;
-	for (int i = 0; i < GRID_WIDTH; i++) {
-		for (int j = 0; j < GRID_HEIGHT; j++) {
-			Node* left = nullptr, * bottom = nullptr, * right = nullptr, * top = nullptr;
-			if (i - 1 > 0) {
-				left = &node_list->at(j * GRID_WIDTH + i - 1);
-			}
-			if (j + 1 < GRID_HEIGHT) {
-				bottom = &node_list->at((j + 1) * GRID_WIDTH + i);
-			}
-			if (i + 1 < GRID_WIDTH) {
-				right = &node_list->at(j * GRID_WIDTH + i + 1);
-			}
-			if (j - 1 > 0) {
-				top = &node_list->at((j - 1) * GRID_WIDTH + i);
-			}
-			node_list->at(j * GRID_WIDTH + i).update_neighbours(left, right, top, bottom);
-		}
-	}
-	build_contour(&node_list->at(first_index), travel_list, first_index, points.size(), 1);
-	render_agent.invalidate();
 }
 
 int elliptical_approx::contour_explorer(Node* node, bool* travel_list, int this_node_index, int remaining_nodes, int start, int pass) {
@@ -960,44 +852,6 @@ bool elliptical_approx::build_contour(Node* node, bool* travel_list, int this_no
 	return true;
 }
 
-double elliptical_approx::rateCurveElliptical(const column_vector& params)
-{
-	double x0 = params(0, 0) * GRID_WIDTH;
-	double y0 = params(1, 0) * GRID_HEIGHT;
-	double a = params(2, 0) * GRID_WIDTH;
-	double b = params(3, 0) * GRID_HEIGHT;
-	double alpha = params(4, 0) * 360;
-
-	double distances = 0;
-
-	for (Point target : points.at(points.size() - 1))
-	{
-		double distance = _DMAX;
-
-		for (int t = 0; t <= 360; t += 5)
-		{
-			Point pt = ellipseParametric(x0, y0, a, b, alpha, t);
-
-			double dCandidate = dist(pt.x, pt.y, target.x, target.y);
-
-			distance = std::min(distance, dCandidate);
-		}
-
-		distances += distance;
-	}
-	printf("x0 = %f;\ty0 = %f;\ta = %f;\tb = %f;\talpha = %f;\n", x0, y0, a, b, alpha);
-
-	// Thats the curve-fitting done.  Now incentivise slightly smoother curves.
-	/*double p1c1 = dist(p1x, p1y, c1x, c1y);
-	double p2c2 = dist(p2x, p2y, c2x, c2y);
-	p1c1 = 0.0;
-	p2c2 = 0.0;
-
-	return distances + pow(p1c1, 0.6) + pow(p2c2, 0.6);*/
-	if (a < 0 || b < 0)
-		return 10000 * distances;
-	return distances;
-}
 
 double elliptical_approx::dist(double x1, double y1, double x2, double y2)
 {

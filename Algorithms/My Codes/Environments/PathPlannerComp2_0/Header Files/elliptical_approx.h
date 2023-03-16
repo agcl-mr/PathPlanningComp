@@ -13,6 +13,14 @@ struct Point {
 	double x, y;
 };
 
+struct int_point {
+	int x, y;
+	int_point(int x, int y) {
+		this->x = x;
+		this->y = y;
+	}
+};
+
 struct strip {
 	int start, end;
 	strip(int start, int end) {
@@ -171,7 +179,7 @@ private:
 	std::vector<Node>* node_list;
 	std::vector<polygon2D> obstacles;
 	local_visualizer render_agent;
-	std::vector<std::vector<Point>> points = { {} };
+	std::vector<std::vector<int_point>> points;;
 	convex_clustering* cluster;
 
 	class coord {
@@ -195,16 +203,14 @@ private:
 
 	void contour_extractor2(void);
 
+	void boundary_pointers_network_to_points_list(Node* start_node, Node* next_node, int first_index, int poly_index);
+
 	void contour_builder_v2(Node* boundary_cell, bool search_left, bool search_right, int last_operation, Node* stopping_node);
 
 	//void contour_builder(Node* boundary_cell, bool search_left, bool search_right, int last_operation, Node* stopping_node);
 	
 	void call_next_counter_clockwise(Node* boundary_cell, int dir, Node* stopping_node, bool forward);
 	
-	void call_next_left(Node* boundary_cell, int dir, Node* stopping_node, bool forward);
-
-	void call_next_right(Node* boundary_cell, int dir, Node* stopping_node, bool forward);
-
 	void contour_analyzer(int first_index, std::vector<std::vector<strip>>* strips);
 
 	int contour_explorer(Node* node, bool* travel_list, int this_node_index, int remaining_nodes, int start, int pass);
