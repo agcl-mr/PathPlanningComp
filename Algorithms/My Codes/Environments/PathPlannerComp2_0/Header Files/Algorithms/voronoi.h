@@ -12,7 +12,6 @@
 #include "../mcc.h"
 #include "../RenderClass.h"
 
-
 class point {
 public:
 	float x, y;

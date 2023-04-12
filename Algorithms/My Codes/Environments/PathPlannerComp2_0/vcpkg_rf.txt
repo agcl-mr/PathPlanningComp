@@ -5,3 +5,4 @@ glfw3
 glslang
 stb
 dlib
+eigen3

@@ -1,5 +1,216 @@
 #include "../Header Files/elliptical_approx.h"
 
+bool CompGeomFuncEllipseApprox::leftOn(float x1, float y1, float x2, float y2, float x0, float y0) {
+	return ((x1 * (y2 - y0) + x2 * (y0 - y1) + x0 * (y1 - y2)) <= 0);
+}
+
+bool CompGeomFuncEllipseApprox::rightOn(float x1, float y1, float x2, float y2, float x0, float y0) {
+	return ((x1 * (y2 - y0) + x2 * (y0 - y1) + x0 * (y1 - y2)) >= 0);
+}
+
+point CompGeomFuncEllipseApprox::intersection_point(tangent* slicee_edge, tangent* slicer_edge) {
+	float x1, y1, x2, y2, a1, b1, a2, b2;
+	x1 = slicee_edge->x1;
+	y1 = slicee_edge->y1;
+	x2 = slicee_edge->x2;
+	y2 = slicee_edge->y2;
+	a1 = slicer_edge->x1;
+	b1 = slicer_edge->y1;
+	a2 = slicer_edge->x2;
+	b2 = slicer_edge->y2;
+
+	point result;
+	float denom1 = float((x2 - x1) * (b2 - b1) - (a2 - a1) * (y2 - y1));
+	if (denom1 == 0) {
+		std::cout << "[WARNING] : Parallel lines\n";
+		result.x = (x1 + x2) / 2;
+		result.y = (y1 + y2) / 2;
+	}
+	else {
+		result.x = float((a2 - a1) * (y1 * x2 - y2 * x1) - (x2 - x1) * (b1 * a2 - b2 * a1))
+			/ denom1;
+
+		if (x2 == x1)
+			result.y = float((b2 - b1) * (result.x) + (b1 * a2 - b2 * a1)) / float(a2 - a1);
+		else
+			result.y = float((y2 - y1) * (result.x) + (y1 * x2 - y2 * x1)) / float(x2 - x1);
+	}
+	return result;
+}
+
+bool CompGeomFuncEllipseApprox::isIntersecting(tangent* edge1, tangent* edge2) {
+	bool test1 = edge1->leftOn(edge2->x1, edge2->y1);
+	bool test2 = edge1->leftOn(edge2->x2, edge2->y2);
+
+	if (test1 == test2)
+		return false;
+
+	bool test3 = edge2->leftOn(edge1->x1, edge1->y1);
+	bool test4 = edge2->leftOn(edge1->x2, edge1->y2);
+
+	if (test3 == test4)
+		return false;
+
+	return true;
+}
+
+bool CompGeomFuncEllipseApprox::isVectorExtendedIntersecting(tangent* fixed_edge, tangent* extendable_edge) {
+	bool test1 = extendable_edge->leftOn(fixed_edge->x1, fixed_edge->y1);
+	bool test2 = extendable_edge->leftOn(fixed_edge->x2, fixed_edge->y2);
+
+	if (test1 == test2)
+		return false;
+
+	//checks if edge has to be extended from end2 or end1 side
+	float dist1 = abs(fixed_edge->x1 * (fixed_edge->y2 - extendable_edge->y1) + fixed_edge->x2 *
+		(extendable_edge->y1 - fixed_edge->y1) + extendable_edge->x1 * (fixed_edge->y1 - fixed_edge->y2));
+	float dist2 = abs(fixed_edge->x1 * (fixed_edge->y2 - extendable_edge->y2) + fixed_edge->x2 *
+		(extendable_edge->y2 - fixed_edge->y1) + extendable_edge->x2 * (fixed_edge->y1 - fixed_edge->y2));
+	if (dist2 > dist1) // end2 is farther from fixed line; so needs to be extended from end1
+		return false;
+
+	return true;
+}
+
+bool CompGeomFuncEllipseApprox::isExtendedIntersecting(tangent* fixed_edge, tangent* extendable_edge) {
+	bool test1 = extendable_edge->leftOn(fixed_edge->x1, fixed_edge->y1);
+	bool test2 = extendable_edge->leftOn(fixed_edge->x2, fixed_edge->y2);
+
+	if (test1 == test2)
+		return false;
+
+	return true;
+}
+
+float CompGeomFuncEllipseApprox::distance(float x1, float y1, float x2, float y2) {
+	return sqrt(pow(x1 - x2, 2.0) + pow(y1 - y2, 2.0));
+}
+
+int CompGeomFuncEllipseApprox::getSign(float x) {
+	if (x >= 0)
+		return 1;
+	else
+		return 0;
+}
+
+int tangent::checkLeft(float x3, float y3) {
+	float expression = (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
+	//if (expression != 0)
+	if (expression > 0)
+		return 1;
+	else
+		return -1;
+	return 0;
+	//return ((x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) >= 0);
+}
+
+bool tangent::leftOn(float x3, float y3) {
+	return CompGeomFunc::leftOn(x1, y1, x2, y2, x3, y3);
+}
+
+bool tangent::rightOn(float x3, float y3) {
+	return CompGeomFunc::rightOn(x1, y1, x2, y2, x3, y3);
+}
+
+bool tangent::isIntersecting(tangent* edge) {
+	return CompGeomFuncEllipseApprox::isIntersecting(this, edge);
+}
+
+bool tangent::isExtendedIntersecting(tangent* edge) {
+	return CompGeomFuncEllipseApprox::isExtendedIntersecting(edge, this);
+}
+
+bool tangent::isVectorExtendedIntersecting(tangent* edge) {
+	return CompGeomFuncEllipseApprox::isVectorExtendedIntersecting(edge, this);
+}
+
+bool tangent::isStrictlyVectorExtendedIntersecting(tangent* edge) {
+	if (CompGeomFuncEllipseApprox::isIntersecting(edge, this))
+		return false;
+	return CompGeomFuncEllipseApprox::isVectorExtendedIntersecting(edge, this);
+}
+
+float tangent::length(void) {
+	return CompGeomFunc::distance(x1, y1, x2, y2);
+}
+
+tangent tangent::invert(void) {
+	return tangent(x2, y2, x1, y1);
+}
+
+float tangent::min_distance_from_line_segment(float x, float y) {
+	float distance;
+	if (CompGeomFuncEllipseApprox::getSign(tangent(x, y, this->x1, this->y1).dot_product(this))
+		!= CompGeomFuncEllipseApprox::getSign(tangent(x, y, this->x2, this->y2).dot_product(this))) {
+		// projection of point on line segment falls between the end points;
+		// So minimum distance is the perpendicular distance
+		distance = std::abs(((this->x1 - x) * (this->y2 - this->y1) - (this->y1 - y) * (this->x2 - this->x1)) / this->length());
+	}
+	else {
+		// projection of point on line segment falls outside the bounds of line segment
+		// So minimum distance is the min of distance from this point to line segment ends
+		float dist1 = polygonEdge(x, y, x1, y1).length();
+		float dist2 = polygonEdge(x, y, x2, y2).length();
+		distance = (((dist1) < (dist2)) ? (dist1) : (dist2));
+	}
+	return distance;
+}
+
+float tangent::dot_product(tangent* edge) {
+	return ((this->x2 - this->x1) * (edge->x2 - edge->x1) + (this->y2 - this->y1) * (edge->y2 - edge->y1));
+}
+
+void ellipse::neighbourSweep::update_tangents_info(tangent internal_tangent1, tangent internal_tangent2, tangent internal_range,
+	tangent external_tangent1, tangent external_tangent2, tangent external_range) {
+	this->internal_tangent1 = internal_tangent1;
+	this->internal_tangent2 = internal_tangent2;
+	this->internal_range = internal_range;
+	this->external_tangent1 = external_tangent1;
+	this->external_tangent2 = external_tangent2;
+	this->external_range = external_range;
+
+	this->visibility_limit_left = external_tangent1;
+	this->visibility_limit_right = external_tangent2;
+	evaluate_visibility_range();
+}
+
+void ellipse::neighbourSweep::evaluate_visibility_range(void) {
+	if (visibility_range.isNull()) {
+		visibility_range = tangent(visibility_limit_left.x2, visibility_limit_left.y2,
+			visibility_limit_right.x2, visibility_limit_right.y2);
+	}
+	else {
+		visibility_range.x1 = visibility_limit_left.x2;
+		visibility_range.y1 = visibility_limit_left.y2;
+		visibility_range.x2 = visibility_limit_right.x2;
+		visibility_range.y2 = visibility_limit_right.y2;
+	}
+}
+
+int ellipse::neighbourSweep::compute_importance(void) {
+	float x1, x2, x3, x4, y1, y2, y3, y4;
+	x1 = this->visibility_limit_left.x1;
+	x2 = this->visibility_limit_left.x2;
+	x3 = this->visibility_limit_right.x2;
+	x4 = this->visibility_limit_right.x1;
+	y1 = this->visibility_limit_left.y1;
+	y2 = this->visibility_limit_left.y2;
+	y3 = this->visibility_limit_right.y2;
+	y4 = this->visibility_limit_right.y1;
+	float param1 = 0.5 * ((x1 * y2 + x2 * y3 + x3 * y4 + x4 * y1) - (x2 * y1 + x3 * y2 + x4 * y3 + x1 * y4));
+	float len1 = visibility_limit_left.length();
+	float len2 = visibility_limit_right.length();
+	float len3 = visibility_range.length();
+	float len4 = polygonEdge(visibility_limit_left.x1, visibility_limit_left.y1,
+		visibility_limit_right.x1, visibility_limit_right.y1).length();
+	float param2 = ((len1 > len2) ? (len1) : (len2));
+	float param3 = 1 / (((len3 > len4) ? (len3) : (len4)));
+	float importance = param1 * param2 * param3;
+	std::cout << importance << std::endl;
+	this->importance = importance;
+	return importance;
+}
+
 bool ellipse::isInside(float x, float y, int i) {
 	//std::cout << "(x, y) -> (" << x << ", " << y << ") | (center_x, center_y) -> (" <<
 	//	center_x << ", " << center_y << ")" << std::endl;
@@ -95,7 +306,7 @@ void local_visualizer::draw_ellipse(ellipse ellipse) {
 }
 
 void local_visualizer::show_edges(std::vector<Line>* edge_list) {
-	if (true) {
+	if (false) {
 		Color color = Color(0.5f, 1.0f, 0.5f);
 
 		for (auto& edge : *edge_list) {
@@ -111,8 +322,8 @@ void local_visualizer::show_edges(std::vector<Line>* edge_list) {
 	}
 }
 
-void local_visualizer::draw_ears_v2(std::vector<Point>* points, std::vector<std::vector<int>>* poly_indice) {
-	if (true) {
+void local_visualizer::draw_ears_v2(std::vector<int_point>* points, std::vector<std::vector<int>>* poly_indice) {
+	if (false) {
 		Color color[] = { Color(0.0f, 0.0f, 0.0f), Color(1.0f, 1.0f, 1.0f), Color(1.0f, 0.0f, 0.0f),
 		Color(0.0f, 1.0f, 1.0f), Color(0.0f, 1.0f, 0.0f), Color(1.0f, 0.0f, 1.0f), Color(1.0f, 1.0f, 0.0f) };
 
@@ -131,7 +342,7 @@ void local_visualizer::draw_ears_v2(std::vector<Point>* points, std::vector<std:
 }
 
 void local_visualizer::draw_ears(int data_x[], int data_y[], std::vector<std::vector<int>>* poly_indice) {
-	if (true) {
+	if (false) {
 		Color color[] = { Color(0.0f, 0.0f, 0.0f), Color(1.0f, 1.0f, 1.0f), Color(1.0f, 0.0f, 0.0f),
 		Color(0.0f, 1.0f, 1.0f), Color(0.0f, 1.0f, 0.0f), Color(1.0f, 0.0f, 1.0f), Color(1.0f, 1.0f, 0.0f) };
 
@@ -149,8 +360,8 @@ void local_visualizer::draw_ears(int data_x[], int data_y[], std::vector<std::ve
 	}
 }
 
-void local_visualizer::visualize_ear_2(std::vector<Point>*points, std::vector<int>* ear, bool clear_again) {
-	if (true) {
+void local_visualizer::visualize_ear_2(std::vector<int_point>*points, std::vector<int>* ear, bool clear_again) {
+	if (false) {
 		Color color = Color(0.0f, 0.0f, 0.0f);
 
 		for (int i = 0; i < ear->size(); i++) {
@@ -179,7 +390,7 @@ void local_visualizer::visualize_ear_2(std::vector<Point>*points, std::vector<in
 }
 
 void local_visualizer::visualize_ear(int data_x[], int data_y[], std::vector<int>* ear, bool clear_again) {
-	if (true) {
+	if (false) {
 		Color color = Color(0.0f, 0.0f, 0.0f);
 
 		for (int i = 0; i < ear->size(); i++) {
@@ -224,289 +435,14 @@ void elliptical_approx::init(std::vector<Node>* node_list, int width, int height
 
 	//ellipse ellipse1 = ellipse(77.04f, 25.04f, 15.09f, 21.54f, 46.69 * PI / 180);
 	//cluster->clustering_2(node_list, GRID_WIDTH);
-	//cluster->clustering_3(node_list, GRID_WIDTH, points);
-}
-/*
-void elliptical_approx::merge_strips(int row, int index2, polygon2D* obstacle, std::vector<std::vector<coord>>* strips_list) {
-	obstacle->vertices.push_back(strips_list->at(row).at(index2).a);
-	if (obstacle->looseBounds.bottom < row)
-		obstacle->looseBounds.bottom = row;
-	if (obstacle->looseBounds.left > strips_list->at(row).at(index2).a % GRID_WIDTH)
-		obstacle->looseBounds.left = strips_list->at(row).at(index2).a % GRID_WIDTH;
-
-	if (row + 1 < GRID_HEIGHT) {
-		if (!strips_list->at(row + 1).empty()) {
-			for (int i = 0; i < strips_list->at(row + 1).size(); i++) {
-				if ((strips_list->at(row + 1).at(i).a % GRID_WIDTH <= strips_list->at(row).at(index2).b % GRID_WIDTH)
-					&& (strips_list->at(row + 1).at(i).b % GRID_WIDTH >= strips_list->at(row).at(index2).a % GRID_WIDTH)) {
-					merge_strips(row + 1, i, obstacle, strips_list);
-					break;
-				}
-			}
-		}
+	for (int i = 0; i < points.size(); i++) {
+		cluster->clustering_3(node_list, GRID_WIDTH, points.at(i));
 	}
 
-	obstacle->vertices.push_back(strips_list->at(row).at(index2).b);
-	if (obstacle->looseBounds.top > row)
-		obstacle->looseBounds.top = row;
-	if (obstacle->looseBounds.right < strips_list->at(row).at(index2).b % GRID_WIDTH)
-		obstacle->looseBounds.right = strips_list->at(row).at(index2).b % GRID_WIDTH;
-	strips_list->at(row).erase(strips_list->at(row).begin() + index2);
+	quad_builder builder = quad_builder(cluster->ellipse_list);
+	map_builder = &builder;
 }
 
-void elliptical_approx::locate_obstacles(void) {
-	bool* checklist = (bool*)malloc(node_list->size() * sizeof(bool));
-
-	std::vector<std::vector<coord>> strips(GRID_HEIGHT);
-
-	int change_over_point = 0;
-	bool obstacle_flag = false;
-	for (int i = 0; i < GRID_HEIGHT; i++) {
-		for (int j = 0; j < GRID_WIDTH; j++) {
-			int index = i * GRID_WIDTH + j;
-			if (node_list->at(index).type == BASE_TAKEN) {
-				if (!obstacle_flag) {
-					change_over_point = index;
-					obstacle_flag = true;
-				}
-			}
-			else {
-				if (obstacle_flag) {
-					strips[i].push_back(coord(change_over_point, index - 1));
-					change_over_point = index;
-					obstacle_flag = false;
-				}
-			}
-		}
-		if (node_list->at(change_over_point).type == BASE_TAKEN)
-			strips[i].push_back(coord(change_over_point, (i + 1) * GRID_WIDTH - 1));
-		change_over_point = 0;
-		obstacle_flag = false;
-	}
-	//std::cin.ignore();
-
-	render_agent.clear_paths();
-	for (int i = 0; i < GRID_HEIGHT; i++) {
-		for (int j = 0; j < strips[i].size(); j++) {
-			render_agent.add_path(Path(strips[i].at(j).a, strips[i].at(j).b));
-		}
-		std::cout << std::endl;
-	}
-	render_agent.invalidate();
-
-	polygon2D obstacle = polygon2D(node_list, GRID_WIDTH);
-	for (int i = 0; i < strips.size(); i++) {
-		int count = 0;
-		while (!strips[i].empty()) {
-			obstacle.looseBounds = rectangularBound(strips.at(i).at(0).a % GRID_WIDTH, strips.at(i).at(0).b % GRID_WIDTH, i, i);
-			merge_strips(i, 0, &obstacle, &strips);
-			if (obstacle.vertices.size() < 3)
-				continue;
-			obstacles.push_back(obstacle);
-			obstacles.at(obstacles.size() - 1).uniqueID = obstacles.size();
-			obstacle = polygon2D(node_list, GRID_WIDTH);
-		}
-	}
-
-	std::cout << "Obstacle count = " << obstacles.size() << std::endl;
-	//std::cin.ignore();
-	render_agent.clear_paths();
-	std::cout << "obstacle count : " << obstacles.size() << std::endl;
-	for (auto& obstacle : obstacles) {
-		obstacle.reconstruct_edges();
-		std::cout << "obstacle edge count : " << obstacle.vertices.size() << std::endl;
-		for (int i = 0; i < obstacle.vertices.size(); i++) {
-			if (i == obstacle.vertices.size() - 1)
-				render_agent.add_path(Path(obstacle.vertices.at(i), obstacle.vertices.at(0)));
-			else
-				render_agent.add_path(Path(obstacle.vertices.at(i), obstacle.vertices.at(i + 1)));
-		}
-	}
-	render_agent.invalidate();
-}
-
-void elliptical_approx::find_in(ellipse ellipse1) {
-	std::cout << "environment variables | (WIDTH, HEIGHT) -> (" << GRID_WIDTH << ", " << GRID_HEIGHT << ")\n";
-	for (int i = 0; i < node_list->size(); i++) {
-		int x = i % GRID_WIDTH;
-		int y = i / GRID_WIDTH;
-		if (ellipse1.isInside(node_list->at(i).x*GRID_WIDTH/2, node_list->at(i).y*GRID_HEIGHT/2, i))
-			node_list->at(i).type = GOAL;
-		else
-			node_list->at(i).type = START;
-
-		if (false) {
-			std::cin.ignore();
-			render_agent.invalidate();
-		}
-	}
-}
-
-void elliptical_approx::find_circle1(void) {
-	int deviation = 100000000;
-	float radii = 0.0;
-	for (int r = 1; r < GRID_WIDTH / 2 && r < GRID_HEIGHT / 2; r++) {
-		int mis_classified_count = 0;
-		for (int i = 0; i < node_list->size(); i++) {
-			ellipse circle = ellipse(0.0f, 0.0f, r, r, 0.0 * PI / 180);
-			bool verdict = circle.isInside(node_list->at(i).x * GRID_WIDTH / 2, node_list->at(i).y * GRID_HEIGHT / 2, i);
-			if (verdict && node_list->at(i).type == BASE_EMPTY)
-				mis_classified_count++;
-			if (!verdict && node_list->at(i).type == BASE_TAKEN)
-				mis_classified_count++;
-		}
-		if (mis_classified_count < deviation) {
-			deviation = mis_classified_count;
-			radii = r;
-		}
-	}
-	std::cout << "radii == " << radii << std::endl;
-	std::cout << "deviation == " << deviation << std::endl;
-	this->render_agent.draw_ellipse(ellipse(0.0f, 0.0f, radii, radii, 0.0 * PI / 180));
-}
-
-void elliptical_approx::find_circle2(void) {
-	int deviation = 100000000;
-	float radii = 0.0;
-	float major_a = 0.0;
-	float minor_b = 0.0;
-	float center_x = 0.0;
-	float center_y = 0.0;
-	float tilt_ellip = 0;
-	for (int tilt = 0; tilt < 360; tilt++) {
-		std::cout << "tilt : " << tilt << std::endl;
-		for (int x = 1; x < GRID_WIDTH / 2; x++) {
-			for (int y = 1; y < GRID_HEIGHT / 2; y++) {
-				for (int a = -GRID_WIDTH / 2; a < GRID_WIDTH / 2; a++) {
-					for (int b = -GRID_HEIGHT / 2; b < GRID_HEIGHT / 2; b++) {
-						int mis_classified_count = 0;
-						for (int i = 0; i < node_list->size(); i++) {
-							ellipse circle = ellipse(x, y, a, b, tilt * PI / 180);
-							bool verdict = circle.isInside(node_list->at(i).x * GRID_WIDTH / 2, node_list->at(i).y * GRID_HEIGHT / 2, i);
-							if (verdict && node_list->at(i).type == BASE_EMPTY)
-								mis_classified_count++;
-							if (!verdict && node_list->at(i).type == BASE_TAKEN)
-								mis_classified_count++;
-						}
-						if (mis_classified_count < deviation) {
-							deviation = mis_classified_count;
-							major_a = a;
-							minor_b = b;
-							center_x = x;
-							center_y = y;
-							tilt_ellip = tilt;
-						}
-					}
-				}
-			}
-		}
-	}
-	std::cout << "center_x == " << center_x << std::endl;
-	std::cout << "center_y == " << center_y << std::endl;
-	std::cout << "major_a == " << major_a << std::endl;
-	std::cout << "minor_b == " << minor_b << std::endl;
-	std::cout << "tilt_ellip == " << tilt_ellip << std::endl;
-	std::cout << "deviation == " << deviation << std::endl;
-	this->render_agent.draw_ellipse(ellipse(center_x, center_y, major_a, minor_b, tilt_ellip * PI / 180));
-}
-
-void elliptical_approx::find_ellipse1(void) {
-	std::cout << GRID_WIDTH << std::endl;
-	int** map = new int* [GRID_HEIGHT];
-	int left_bound = GRID_WIDTH - 1, right_bound = 0, top_bound = GRID_HEIGHT - 1, bottom_bound = 0;
-
-	for (int i = 0; i < GRID_HEIGHT; i++) {
-		map[i] = new int[GRID_WIDTH];
-	}
-	for (int i = 0; i < GRID_HEIGHT; i++) {
-		for (int j = 0; j < GRID_WIDTH; j++) {
-			map[i][j] = node_list->at(i * GRID_WIDTH + j).type;
-		}
-	}
-	for (int j = 0; j < GRID_HEIGHT; j++) {
-		for (int i = 0; i < GRID_WIDTH; i++) {
-			if (j > 0 && i > 0 && j < GRID_HEIGHT - 1 && i < GRID_WIDTH - 1) {
-				int up = node_list->at((j-1) * GRID_WIDTH + i).type;
-				int down = node_list->at((j+1) * GRID_WIDTH + i).type;
-				int left = node_list->at(j * GRID_WIDTH + (i-1)).type;
-				int right = node_list->at(j * GRID_WIDTH + (i+1)).type;
-				//if (up != down || left != right)
-				if (map[j - 1][i] != map[j + 1][i] || map[j][i - 1] != map[j][i + 1]) {
-					node_list->at(j * GRID_WIDTH + i).type = START;
-					points.at(points.size() - 1).push_back(int_point(i, j));
-					if (left_bound > i)
-						left_bound = i;
-					if (right_bound < i)
-						right_bound = i;
-					if (top_bound > j)
-						top_bound = j;
-					if (bottom_bound < j)
-						bottom_bound = j;
-				}
-				else {
-					node_list->at(j * GRID_WIDTH + i).type = GOAL;
-				}
-			}
-		}
-	}
-
-	column_vector params(5);
-	//params = (left_bound + right_bound) / 2, (top_bound + bottom_bound) / 2, std::abs(left_bound - right_bound) / 2, std::abs(top_bound - right_bound) / 2, 45;
-	params = 77.980, 23.878, 19.59261, 15.90431, 56.754;
-
-	params(0, 0) /= GRID_WIDTH;
-	params(1, 0) /= GRID_HEIGHT;
-	params(2, 0) /= GRID_WIDTH;
-	params(3, 0) /= GRID_HEIGHT;
-	params(4, 0) /= 360;
-
-	std::cout << "Starting params : \n";
-	std::cout << "left : " << left_bound << "\n";
-	std::cout << "right : " << right_bound << "\n";
-	std::cout << "top : " << top_bound << "\n";
-	std::cout << "bottom : " << bottom_bound << "\n";
-	printf("x0 = %f;\n", params(0, 0));
-	printf("y0 = %f;\n", params(1, 0));
-	printf("a = %f;\n", params(2, 0));
-	printf("b = %f;\n", params(3, 0));
-	printf("alpha = %f;\n", params(4, 0));
-
-	/*dlib::find_min_using_approximate_derivatives(
-		dlib::cg_search_strategy(),
-		dlib::objective_delta_stop_strategy(1).be_verbose(),
-		[&](const column_vector& a) {
-			return this->rateCurveElliptical(a);
-		},
-		params,
-			-1);*
-	column_vector lb = {0,0,0,0, 0};
-	column_vector ub = { 1, 1, 1, 1, 1 };
-
-	dlib::find_min_box_constrained(dlib::bfgs_search_strategy(),
-		dlib::objective_delta_stop_strategy(1).be_verbose(),
-		[&](const column_vector& a) {
-			return this->rateCurveElliptical(a);
-		}, dlib::derivative([&](const column_vector& a) {
-			return this->rateCurveElliptical(a);
-			}),
-			params, lb, ub);
-
-	params(0, 0) *= GRID_WIDTH;
-	params(1, 0) *= GRID_HEIGHT;
-	params(2, 0) *= GRID_WIDTH;
-	params(3, 0) *= GRID_HEIGHT;
-	params(4, 0) *= 360;
-
-	std::cout << "Optimized params : \n";
-	printf("x0 = %f;\n", params(0, 0));
-	printf("y0 = %f;\n", params(1, 0));
-	printf("a = %f;\n", params(2, 0));
-	printf("b = %f;\n", params(3, 0));
-	printf("alpha = %f;\n", params(4, 0));
-
-	this->render_agent.draw_ellipse(ellipse(params(0, 0), params(1, 0), params(2, 0), params(3, 0), params(4, 0) * PI / 180));
-}
-*/
 void elliptical_approx::call_next_counter_clockwise(Node* boundary_cell, int dir, Node* stopping_node, bool forward) {
 	Node* next_node = nullptr;
 	switch (dir) {
@@ -544,6 +480,8 @@ void GL_to_image_coords_temp(int GRID_WIDTH, int GRID_HEIGHT, float x_GL, float 
 }
 
 void elliptical_approx::contour_builder_v2(Node* boundary_cell, bool search_left, bool search_right, int last_operation, Node* stopping_node) {
+	if (boundary_cell == nullptr)
+		return;
 	// for a given end point; locate its left and right neighbour.
 	bool bounds[8] = { false, false, false, false, false, false, false, false };
 	if (boundary_cell->left == nullptr) {
@@ -719,7 +657,9 @@ void elliptical_approx::contour_analyzer(int first_index, std::vector<std::vecto
 
 	// append these edge info to strips list
 	for (int i = 0; i < edges.size(); i++) {
-		for (int j = 0; j < edges.at(i).size(); j++) {
+
+		int TRAVERSALS = edges.at(i).size();
+		for (int j = 0; j < TRAVERSALS; j++) {
 			if (edges.at(i).empty())
 				continue;
 			int start = edges.at(i).at(0);
@@ -753,8 +693,9 @@ void elliptical_approx::contour_extractor2(void) {
 	for (int i = 0; i < GRID_HEIGHT; i++) {
 		for (int j = 0; j < GRID_WIDTH; j++) {
 			bool continue_flag = false;
+
 			for (int k = 0; k < strips.at(i).size(); k++) {
-				if (strips.at(i).at(k).start <= j && strips.at(i).at(k).end>=j) {
+				if (strips.at(i).at(k).start <= j && strips.at(i).at(k).end >= j) {
 					j = strips.at(i).at(k).end;
 					continue_flag = true;
 					break;
@@ -1125,10 +1066,10 @@ void convex_clustering::filter_dimples_2(std::vector<result>* traversal, std::ve
 		}
 		ear_area_2(&ear, filter, false);
 	}
-	std::cin.ignore();
+	//std::cin.ignore();
 	std::cout << "Clearing out paths\n";
 	render_agent->clear_path();
-	std::cin.ignore();
+	//std::cin.ignore();
 }
 
 void convex_clustering::filter_dimples(std::vector<result>* traversal, std::vector<result>* filter, int filter_size) {
@@ -1257,7 +1198,7 @@ void convex_clustering::clustrify(std::vector<result>* dimples, std::vector<std:
 	}
 }
 
-void convex_clustering::clustering_3(std::vector<Node>* node_list, int GRID_WIDTH, std::vector<Point> points) {
+void convex_clustering::clustering_3(std::vector<Node>* node_list, int GRID_WIDTH, std::vector<int_point> points) {
 	this->points = points;
 	std::vector<result> initial_list;
 	data_size = points.size();
@@ -1335,15 +1276,37 @@ void convex_clustering::clustering_3(std::vector<Node>* node_list, int GRID_WIDT
 	clustrify_v2(old_vertices_set, &clustered_data);
 
 	std::cout << "final outcome\n";
-	print_poly_indice(&clustered_data);
+	//print_poly_indice(&clustered_data);
+
+	for (int i = 0; i < clustered_data.size(); i++) {
+		clustered_points.push_back(std::vector<int_point>());
+		int last_index = clustered_points.size()-1;
+		for (int j = 0; j < clustered_data.at(i).size(); j++) {
+			clustered_points.at(last_index).push_back(points.at(clustered_data.at(i).at(j)));
+		}
+	}
+	/*//-----------
+	std::cout << "[\n";
+	for (int i = 0; i < clustered_points.size(); i++) {
+		std::cout << "[";
+		for (int j = 0; j < clustered_points.at(i).size(); j++)
+			std::cout << "[" << clustered_points.at(i).at(j).x << ", " << clustered_points.at(i).at(j).y << "] , ";
+		std::cout << "\b\b]\n";
+	}
+	std::cout << "]\n";
+	//-----------
 
 
 	std::cin.ignore();
 	std::cout << "Clearing out paths\n";
 	render_agent->clear_path();
-	std::cin.ignore();
+	std::cin.ignore();*/
 
 	render_agent->draw_ears_v2(&points, &clustered_data);
+
+	for (int i = 0; i < clustered_data.size(); i++) {
+		ellipse_fitter(clustered_points.size() - 1 - i);
+	}
 }
 
 void convex_clustering::clustering_2(std::vector<Node>* node_list, int GRID_WIDTH) {
@@ -1394,4 +1357,95 @@ void convex_clustering::clustering_2(std::vector<Node>* node_list, int GRID_WIDT
 	std::cin.ignore();
 
 	render_agent->draw_ears(data_x, data_y, &clustered_data);
+}
+
+void convex_clustering::ellipse_fitter(int poly_index) {
+	std::vector<int_point> data = clustered_points.at(poly_index);
+	// Generate some sample boundary points
+	Eigen::MatrixXd X(data.size(), 5);
+	for (int i = 0; i < data.size(); i++) {
+		/*double angle = 2 * M_PI * i / 100;
+		X(i, 0) = 3 * cos(angle);
+		X(i, 1) = 2 * sin(angle);*/
+		X(i, 0) = data.at(i).x * data.at(i).x;
+		X(i, 1) = data.at(i).x * data.at(i).y;
+		X(i, 2) = data.at(i).y * data.at(i).y;
+		X(i, 3) = data.at(i).x;
+		X(i, 4) = data.at(i).y;
+	}
+
+	// Create the Y vector with the values of 1 for each boundary point
+	Eigen::VectorXd Y(data.size());
+	Y.fill(-1);
+
+	// Solve the system of linear equations X * p = Y using np.linalg.lstsq
+	Eigen::VectorXd p = X.colPivHouseholderQr().solve(Y);
+
+	// Extract the parameters of the ellipse from the vector p
+	std::cout << " p(0) " << p(0) << std::endl;
+	std::cout << " p(1) " << p(1) << std::endl;
+	std::cout << " p(2) " << p(2) << std::endl;
+	std::cout << " p(3) " << p(3) << std::endl;
+	std::cout << " p(4) " << p(4) << std::endl;
+
+	double dem = p(1) * p(1) - 4 * p(0) * p(2);			// dem = b*b - 4ac
+	double x0 = (2 * p(2) * p(3) - p(1) * p(4)) / dem;	// x0 = (2cd - be)/dem
+	double y0 = (2 * p(0) * p(4) - p(1) * p(3)) / dem;	// y0 = (2ae - bd) / dem
+	double param = std::pow((std::pow((p(0) - p(2)), 2.0) + p(1) * p(1)), 0.5);	
+														// param = ((a-c)^2.0 + b*b) ^0.5
+	double axi_max = -(std::pow((2 * (p(0) * p(4) * p(4) + p(2) * p(3) * p(3) - p(1) * p(3) * p(4) + dem)
+		* ((p(0) + p(2)) + param)), 0.5)) / dem;
+				// axi_max = -((2(ae*e + cd*d - bde + dem)*((a + c) + param))^0.5) / dem
+	double axi_min = -(std::pow((2 * (p(0) * p(4) * p(4) + p(2) * p(3) * p(3) - p(1) * p(3) * p(4) + dem)
+		* ((p(0) + p(2)) - param)), 0.5)) / dem;
+				// axi_min = -((2(ae*e + cd*d - bde + dem)*((a + c) - param))^0.5) / dem
+	
+	double theta = std::atan2(p(1) , (p(2) - p(0) - param));
+												// theta = atan2(b, c-a-param) * 180 / PI
+	std::cout << "dem = " << dem << ", x0 = " << x0 << ", y0 = " << y0 << ", axi_max = " << axi_max << ", axi_min = " << axi_min << ", theta = " << (theta*57.2958) << std::endl;
+
+	this->ellipse_list.push_back(ellipse(x0, y0, axi_max, axi_min, theta));
+	render_agent->draw_ellipse(ellipse_list.at(ellipse_list.size()-1));
+
+}
+
+quad_builder::quad_builder(std::vector<ellipse> list) {
+	obstacles = list;
+	/*
+	// create empty neighbour map spaces
+	for (int j = 0; j < obstacles.size(); j++) {
+		for (int i = 0; i < obstacles.size(); i++) {
+			if (obstacles.at(j).uniqueID == obstacles.at(i).uniqueID) {
+				continue;
+			}
+			obstacles.at(j).neighbours.push_back(ellipse::neighbourSweep(&obstacles.at(i), j + 1));
+		}
+	}
+
+	// initialise neighbour details
+	std::vector<float> vertices;
+	for (auto& obstacle : obstacles) {
+		obstacle.create_neighbour_map(&obstacles, &render_agent);
+
+		render_agent.visualizing_helper3(&obstacle, &vertices);
+		//std::cin.ignore();
+	}
+
+	for (int j = 0; j < obstacles.size(); j++) {
+		std::cout << "[SIZE] : " << obstacles.at(j).neighbours.size() << std::endl;
+	}
+
+	// importance factor
+	for (int j = 0; j < obstacles.size(); j++) {
+		for (int i = 0; i < obstacles.at(j).neighbours.size(); i++) {
+			if (obstacles.at(j).neighbours.at(i).visible) {
+				std::cout << "[VISIBLE] ";
+				obstacles.at(j).neighbours.at(i).compute_importance();
+			}
+			else {
+				std::cout << "[HIDDEN]" << std::endl;
+			}
+		}
+		std::cout << " -------------------------------------------------------------- \n";
+	}*/
 }
