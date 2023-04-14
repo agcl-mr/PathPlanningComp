@@ -8,7 +8,7 @@ bool CompGeomFuncEllipseApprox::rightOn(float x1, float y1, float x2, float y2, 
 	return ((x1 * (y2 - y0) + x2 * (y0 - y1) + x0 * (y1 - y2)) >= 0);
 }
 
-point CompGeomFuncEllipseApprox::intersection_point(tangent* slicee_edge, tangent* slicer_edge) {
+point CompGeomFuncEllipseApprox::intersection_point(vector_segment* slicee_edge, vector_segment* slicer_edge) {
 	float x1, y1, x2, y2, a1, b1, a2, b2;
 	x1 = slicee_edge->x1;
 	y1 = slicee_edge->y1;
@@ -38,7 +38,7 @@ point CompGeomFuncEllipseApprox::intersection_point(tangent* slicee_edge, tangen
 	return result;
 }
 
-bool CompGeomFuncEllipseApprox::isIntersecting(tangent* edge1, tangent* edge2) {
+bool CompGeomFuncEllipseApprox::isIntersecting(vector_segment* edge1, vector_segment* edge2) {
 	bool test1 = edge1->leftOn(edge2->x1, edge2->y1);
 	bool test2 = edge1->leftOn(edge2->x2, edge2->y2);
 
@@ -54,7 +54,7 @@ bool CompGeomFuncEllipseApprox::isIntersecting(tangent* edge1, tangent* edge2) {
 	return true;
 }
 
-bool CompGeomFuncEllipseApprox::isVectorExtendedIntersecting(tangent* fixed_edge, tangent* extendable_edge) {
+bool CompGeomFuncEllipseApprox::isVectorExtendedIntersecting(vector_segment* fixed_edge, vector_segment* extendable_edge) {
 	bool test1 = extendable_edge->leftOn(fixed_edge->x1, fixed_edge->y1);
 	bool test2 = extendable_edge->leftOn(fixed_edge->x2, fixed_edge->y2);
 
@@ -72,7 +72,7 @@ bool CompGeomFuncEllipseApprox::isVectorExtendedIntersecting(tangent* fixed_edge
 	return true;
 }
 
-bool CompGeomFuncEllipseApprox::isExtendedIntersecting(tangent* fixed_edge, tangent* extendable_edge) {
+bool CompGeomFuncEllipseApprox::isExtendedIntersecting(vector_segment* fixed_edge, vector_segment* extendable_edge) {
 	bool test1 = extendable_edge->leftOn(fixed_edge->x1, fixed_edge->y1);
 	bool test2 = extendable_edge->leftOn(fixed_edge->x2, fixed_edge->y2);
 
@@ -93,7 +93,7 @@ int CompGeomFuncEllipseApprox::getSign(float x) {
 		return 0;
 }
 
-int tangent::checkLeft(float x3, float y3) {
+int vector_segment::checkLeft(float x3, float y3) {
 	float expression = (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
 	//if (expression != 0)
 	if (expression > 0)
@@ -104,44 +104,44 @@ int tangent::checkLeft(float x3, float y3) {
 	//return ((x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) >= 0);
 }
 
-bool tangent::leftOn(float x3, float y3) {
+bool vector_segment::leftOn(float x3, float y3) {
 	return CompGeomFunc::leftOn(x1, y1, x2, y2, x3, y3);
 }
 
-bool tangent::rightOn(float x3, float y3) {
+bool vector_segment::rightOn(float x3, float y3) {
 	return CompGeomFunc::rightOn(x1, y1, x2, y2, x3, y3);
 }
 
-bool tangent::isIntersecting(tangent* edge) {
+bool vector_segment::isIntersecting(vector_segment* edge) {
 	return CompGeomFuncEllipseApprox::isIntersecting(this, edge);
 }
 
-bool tangent::isExtendedIntersecting(tangent* edge) {
+bool vector_segment::isExtendedIntersecting(vector_segment* edge) {
 	return CompGeomFuncEllipseApprox::isExtendedIntersecting(edge, this);
 }
 
-bool tangent::isVectorExtendedIntersecting(tangent* edge) {
+bool vector_segment::isVectorExtendedIntersecting(vector_segment* edge) {
 	return CompGeomFuncEllipseApprox::isVectorExtendedIntersecting(edge, this);
 }
 
-bool tangent::isStrictlyVectorExtendedIntersecting(tangent* edge) {
+bool vector_segment::isStrictlyVectorExtendedIntersecting(vector_segment* edge) {
 	if (CompGeomFuncEllipseApprox::isIntersecting(edge, this))
 		return false;
 	return CompGeomFuncEllipseApprox::isVectorExtendedIntersecting(edge, this);
 }
 
-float tangent::length(void) {
+float vector_segment::length(void) {
 	return CompGeomFunc::distance(x1, y1, x2, y2);
 }
 
-tangent tangent::invert(void) {
-	return tangent(x2, y2, x1, y1);
+vector_segment vector_segment::invert(void) {
+	return vector_segment(x2, y2, x1, y1);
 }
 
-float tangent::min_distance_from_line_segment(float x, float y) {
+float vector_segment::min_distance_from_line_segment(float x, float y) {
 	float distance;
-	if (CompGeomFuncEllipseApprox::getSign(tangent(x, y, this->x1, this->y1).dot_product(this))
-		!= CompGeomFuncEllipseApprox::getSign(tangent(x, y, this->x2, this->y2).dot_product(this))) {
+	if (CompGeomFuncEllipseApprox::getSign(vector_segment(x, y, this->x1, this->y1).dot_product(this))
+		!= CompGeomFuncEllipseApprox::getSign(vector_segment(x, y, this->x2, this->y2).dot_product(this))) {
 		// projection of point on line segment falls between the end points;
 		// So minimum distance is the perpendicular distance
 		distance = std::abs(((this->x1 - x) * (this->y2 - this->y1) - (this->y1 - y) * (this->x2 - this->x1)) / this->length());
@@ -156,18 +156,138 @@ float tangent::min_distance_from_line_segment(float x, float y) {
 	return distance;
 }
 
-float tangent::dot_product(tangent* edge) {
+float vector_segment::dot_product(vector_segment* edge) {
 	return ((this->x2 - this->x1) * (edge->x2 - edge->x1) + (this->y2 - this->y1) * (edge->y2 - edge->y1));
 }
 
-void ellipse::neighbourSweep::update_tangents_info(tangent internal_tangent1, tangent internal_tangent2, tangent internal_range,
-	tangent external_tangent1, tangent external_tangent2, tangent external_range) {
+float vector_segment::perpendicular_distance(float x, float y) {
+	/*
+	* equation of line : (y1-y2) x + (x2-x1) y - y1x2 + y2x1 = 0
+	* d = ((y1-y2)x0 + (x2-x1)y0 - y1x2 + y2x1)/((y1-y2)^2 + (x1-x2)^2)^0.5
+	* d = (-(y2-y1)x0 + (x2-x1)y0 - (x2-x1)y1 + (y2-y1)x1)/len
+	* d = ((x1-x0)*(y2-y1) - (y1-y0)*(x2-x1))/length
+	*/
+	return std::abs(((this->x1 - x) * (this->y2 - this->y1) - (this->y1 - y) * (this->x2 - this->x1)) / this->length());
+}
+
+void vector_segment::intersection_points(ellipse* ellipse, vector_segment* result) {
+
+	// if ellipse is more than a(major axis) units away from line : no intersection
+	float d = this->perpendicular_distance(ellipse->center_x, ellipse->center_y);
+	if (d > ellipse->a) {
+		result = nullptr;
+		return;
+	}
+
+	/*
+	* Slope of tangent m1 = (y2-y1)/(x2-x1) = tan(phi)
+	* Find distance d from ellipse center in variable d
+	* Transform it to axis aligned format;
+	* new m = (m1-m2)/(1+m1*m2) ; m2 = tan(theta_ellipse)
+	* equation of transformed line : y = mx + d*(1+m*m)^0.5
+	*
+	* For a origin-centered axis aligned ellipse ; (x/a)^2 + (y/b)^2 = 1
+	* intersection points x:
+	* (b^2 + a^2*m^2) x^2 + 2(a^2)dm*(1+m*m)^0.5 x + (a^2)*((d^2)*(1+m*m)-a*a*b*b) = 0
+	* P x^2 + Q x + R = 0
+	* If discriminant < 0 ==> Not interesecting
+	* For discriminant >=0 ==> Find x1, y1, x2, y2 ==> update as expose_vector_chord
+	*/
+
+	float m1 = (y2 - y1) / (x2 - x1);
+	float m2 = std::tan(ellipse->tilt);
+	float m = (m1 - m2) / (1 + m1 * m2);
+	float a = ellipse->a;
+	float b = ellipse->b;
+
+	float P = b*b + m*m*a*a;
+	float Q = 2 * a*a * d * m * std::pow(1 + m * m, 0.5);
+	float R = a * a * (d * d * (1 + m * m) - a * a * b * b);
+
+	float discriminant = Q * Q - 4 * P * R;
+
+	if (discriminant < 0) {
+		result = nullptr;
+		return;
+	}
+
+	float x1 = (-Q - std::pow(discriminant, 0.5)) / (2 * P);
+	float x2 = (-Q + std::pow(discriminant, 0.5)) / (2 * P);
+	float k = d * std::pow(1 + m * m, 0.5);
+	float y1 = m * x1 + k;
+	float y2 = m * x2 + k;
+
+	*result = vector_segment(x1, y1, x2, y2); // These points are relative to the given ellipse
+									// coordinate frame is chosen centered at ellipse center, x-axis along major axis
+
+	// ensure that tangents are always facing the same direction
+	// convention : ellipse center should be on left to tangent
+
+	if (result->rightOn(ellipse->center_x, ellipse->center_y)) {
+		// if this convention was not followed; reverse the direction
+		*result = vector_segment(x2, y2, x1, y1);
+	}
+}
+
+bool quad::isIntersecting(quad* quad) {
+	if (blocked1.isIntersecting(&quad->free1) && blocked1.isIntersecting(&quad->free2))
+		return false;
+	if (blocked1.isIntersecting(&quad->blocked1) && blocked1.isIntersecting(&quad->blocked2))
+		return false;
+
+	if (blocked2.isIntersecting(&quad->free1) && blocked2.isIntersecting(&quad->free2))
+		return false;
+	if (blocked2.isIntersecting(&quad->blocked1) && blocked2.isIntersecting(&quad->blocked2))
+		return false;
+
+	if (quad->blocked1.isIntersecting(&free1) && quad->blocked1.isIntersecting(&free2))
+		return false;
+	if (quad->blocked1.isIntersecting(&blocked1) && quad->blocked1.isIntersecting(&blocked2))
+		return false;
+
+	if (quad->blocked2.isIntersecting(&free1) && quad->blocked2.isIntersecting(&free2))
+		return false;
+	if (quad->blocked2.isIntersecting(&blocked1) && quad->blocked2.isIntersecting(&blocked2))
+		return false;
+
+	return true;
+}
+
+void quad::map_expander(quad* quad, std::vector<bool>* checklist) {
+	/*
+	* If this is quad itself, return
+	* Check if this quad has been already visited; if yes, return
+	* Else check if it intersects with quad; if yes, add this quad to its neighbours list
+	* Call this function for all the neighbours
+	*/
+	if (this == quad)
+		return;
+	if (checklist->at(id))
+		return;
+
+	checklist->at(id) = true;
+	for (int i = 0; i < neighbours.size(); i++) {
+		if (checklist->at(neighbours.at(i)->id))
+			continue;
+		neighbours.at(i)->map_expander(quad, checklist);
+	}
+
+	// intersection code here!!
+	if (isIntersecting(quad))
+		neighbours.push_back(quad);
+}
+
+void ellipse::neighbourSweep::update_tangents_info(vector_segment internal_tangent1, vector_segment internal_tangent2,
+	vector_segment external_tangent1, vector_segment external_tangent2) {
 	this->internal_tangent1 = internal_tangent1;
 	this->internal_tangent2 = internal_tangent2;
-	this->internal_range = internal_range;
+	this->internal_range = vector_segment(internal_tangent1.x2, internal_tangent1.y2,
+		internal_tangent2.x2, internal_tangent2.y2);
+
 	this->external_tangent1 = external_tangent1;
 	this->external_tangent2 = external_tangent2;
-	this->external_range = external_range;
+	this->external_range = vector_segment(external_tangent1.x2, external_tangent1.y2,
+		external_tangent2.x2, external_tangent2.y2);
 
 	this->visibility_limit_left = external_tangent1;
 	this->visibility_limit_right = external_tangent2;
@@ -176,7 +296,7 @@ void ellipse::neighbourSweep::update_tangents_info(tangent internal_tangent1, ta
 
 void ellipse::neighbourSweep::evaluate_visibility_range(void) {
 	if (visibility_range.isNull()) {
-		visibility_range = tangent(visibility_limit_left.x2, visibility_limit_left.y2,
+		visibility_range = vector_segment(visibility_limit_left.x2, visibility_limit_left.y2,
 			visibility_limit_right.x2, visibility_limit_right.y2);
 	}
 	else {
@@ -211,6 +331,79 @@ int ellipse::neighbourSweep::compute_importance(void) {
 	return importance;
 }
 
+ellipse::boundingChords::boundingChords(vector_segment* bound1, vector_segment* bound2) {
+	bound1_empty = (bound1 == nullptr);
+	bound2_empty = (bound2 == nullptr);
+
+	if (bound1_empty && bound2_empty)
+		empty = true;
+	else
+		empty = false;
+
+	if (!bound1_empty) {
+		this->bound1 = *bound1;
+	}
+	if (!bound2_empty) {
+		this->bound2 = *bound2;
+	}
+}
+
+vector_segment* ellipse::boundingChords::update_bound(vector_segment* original, vector_segment* update) {
+	if (!original->isIntersecting(update))
+		return nullptr; // doesn't intersect each other
+
+	// find the resultant tangent
+	vector_segment resultant;
+	if (original->rightOn(update->x1, update->y1)) {
+		resultant = vector_segment(original->x1, original->y1, update->x2, update->y2);
+	}
+	else {
+		resultant = vector_segment(update->x1, update->y1, original->x1, original->y1);
+	}
+
+	return &resultant;
+}
+
+void ellipse::boundingChords::intersection_update(boundingChords bound) {
+	/*
+	* check intersection of first original chord with the two bounds 1 by 1.
+	* at each intersection if output is nullptr; don't update. else update the pointer.
+	* after both checks if latest result is nulptr, mark that bound empty
+	*/
+	vector_segment* resultant = update_bound(&bound1, &bound.bound1);
+	if (resultant != nullptr) {
+		bound1 = *resultant;
+		resultant = nullptr;
+	}
+
+	resultant = update_bound(&bound1, &bound.bound2);
+	if (resultant == nullptr) {
+		bound1_empty = true;
+	}
+	else {
+		bound1 = *resultant;
+		resultant = nullptr;
+	}
+
+	resultant = update_bound(&bound2, &bound.bound1);
+	if (resultant != nullptr) {
+		bound2 = *resultant;
+		resultant = nullptr;
+	}
+
+	resultant = update_bound(&bound2, &bound.bound2);
+	if (resultant == nullptr) {
+		bound2_empty = true;
+	}
+	else {
+		bound2 = *resultant;
+		resultant = nullptr;
+	}
+
+	if (bound1_empty && bound2_empty)
+		empty = true;
+}
+
 bool ellipse::isInside(float x, float y, int i) {
 	//std::cout << "(x, y) -> (" << x << ", " << y << ") | (center_x, center_y) -> (" <<
 	//	center_x << ", " << center_y << ")" << std::endl;
@@ -234,6 +427,300 @@ bool ellipse::isInside(float x, float y, int i) {
 		return false;
 		
 	return true;
+}
+
+std::vector<int> ellipse::create_priority_list(std::vector<ellipse>* obstacles) {
+	/*
+	* For the refernce ellipse, sort the remaining elliptical obstacles
+	in order of distance from reference ellipse
+	*/
+	std::vector<int> priority_queue;
+
+	float current_min = 100000.0f;
+	int current_index = 0;
+	float me_center_x = center_x;
+	float me_center_y = center_y;
+	bool find_val = false;
+
+	for (auto& obstacle : *obstacles) {
+		// n iterations are needed; 1 list entry per iteration
+		current_min = 100000.0f;
+		for (int i = 0; i < obstacles->size(); i++) {
+			// check if the elipse is already in priority queue; skip it by "continue"
+			for (auto& id : priority_queue) {
+				if (id == i) {
+					find_val = true;
+					break;
+				}
+			}
+			if (find_val) {
+				find_val = false;
+				continue;
+			}
+
+			float you_center_x = obstacles->at(i).center_x;
+			float you_center_y = obstacles->at(i).center_y;
+			float dist2 = pow(me_center_x - you_center_x, 2.0) + pow(me_center_y - you_center_y, 2.0);
+			if (dist2 < current_min) { // dist2 is squared distance
+				current_min = dist2;
+				current_index = i;
+			}
+		}
+		priority_queue.push_back(current_index);
+	}
+
+	return priority_queue;
+}
+
+bool ellipse::checkShielded_reloaded(ellipse* neighbour, local_visualizer* render_agent) {
+	boundingChords expose_vector;
+
+	for (int i = 0; i < neighbours.size(); i++) {// iterating over "petals" like bounds of the complete "flower" like polygon
+		vector_segment internal_chord = vector_segment(neighbours.at(i).internal_tangent1.x2,
+			neighbours.at(i).internal_tangent1.y2, neighbours.at(i).internal_tangent2.x2,
+			neighbours.at(i).internal_tangent2.y2);
+		// if ellipse is already in front of the shielding ellipse
+		bool check0 = internal_chord.rightOn(neighbour->center_x, neighbour->center_y);
+		if (check0)
+			continue;
+		vector_segment* intersection_test0;
+		internal_chord.intersection_points(neighbour, intersection_test0);
+		if (intersection_test0 != nullptr)
+			continue;
+
+		// check if the ellipse is outside the quadrant(formed by 2 tangents) of interest
+		bool check1 = neighbours.at(i).internal_tangent1.leftOn(neighbour->center_x, neighbour->center_y);
+		bool check2 = neighbours.at(i).internal_tangent2.rightOn(neighbour->center_x, neighbour->center_y);
+		if (check1 || check2)
+			continue;
+
+		vector_segment* intersection1, * intersection2;
+		neighbours.at(i).internal_tangent1.intersection_points(neighbour, intersection1);
+		neighbours.at(i).internal_tangent2.intersection_points(neighbour, intersection2);
+
+		if (intersection1 == nullptr && intersection2 == nullptr)
+			return true;
+
+		if (expose_vector.empty) {
+			expose_vector = boundingChords(intersection1, intersection2);
+		}
+		else {
+			//check which tangent is involved
+			boundingChords update = boundingChords(intersection1, intersection2);
+			expose_vector.intersection_update(update);
+
+			if (expose_vector.empty)
+				return true;
+
+		}
+	}
+
+	return false;
+}
+
+void ellipse::approximate_tangent(ellipse* neighbour) {
+	/*
+	* compute approximated tangents between two ellipses, now approximated aa tangents between two quads
+	*/
+	vector_segment InT1, InT2, ExT1, ExT2;
+	std::vector<std::vector<float>> quad1 = { {a, 0}, {0, b}, {-a, 0}, {0, -b} };
+	std::vector<std::vector<float>> quad2 = { {neighbour->a, 0}, {0, neighbour->b}, {-neighbour->a, 0}, {0, -neighbour->b} };
+
+	for (int i = 0; i < quad1.size(); i++) {
+		for (int j = 0; j < quad2.size(); j++) {
+			float x1, y1, x2, y2;
+			x1 = quad1.at(i).at(0);
+			y1 = quad1.at(i).at(1);
+			x2 = quad2.at(j).at(0);
+			y2 = quad2.at(j).at(1);
+			vector_segment line = vector_segment(x1, y1, x2, y2);
+
+			int check1 = 0, check2 = 0;
+			for (int k = 0; k < quad1.size(); k++) {
+				if (k == i)
+					continue;
+				bool check = line.leftOn(quad1.at(k).at(0), quad1.at(k).at(1));
+				if (check) {
+					check1++;
+				}
+				else {
+					check1--;
+				}
+			}
+
+			for (int k = 0; k < quad2.size(); k++) {
+				if (k == j)
+					continue;
+				bool check = line.leftOn(quad2.at(k).at(0), quad2.at(k).at(1));
+				if (check) {
+					check2++;
+				}
+				else {
+					check2--;
+				}
+			}
+
+			if (check1 == -3) {
+				if (check2 == -3) {
+					// external tangent 1
+					ExT1 = line;
+				}
+				if (check2 == 3) {
+					// internal tangent 2
+					InT2 = line;
+				}
+			}
+			if (check1 == 3) {
+				if (check2 == -3) {
+					// internal tangent 1
+					InT1 = line;
+				}
+				if (check2 == 3) {
+					// external tangent 2
+					ExT2 = line;
+				}
+			}
+		}
+	}
+
+	neighbourSweep sweep = neighbourSweep(neighbour, uniqueID);
+	sweep.update_tangents_info(InT1, InT2, ExT1, ExT2);
+	neighbours.push_back(sweep);
+}
+
+void ellipse::tangents_handler(ellipse* neighbour, local_visualizer* render_agent) {
+	/*
+	* passed ellipse is already a neighbour of this ellipse
+	* Just compute all the relevant details and add this to neighbours list
+	*/
+
+	vector_segment internal_tangent1, internal_tangent2, internal_range,
+		external_tangent1, external_tangent2, external_range;
+
+	/*std::vector<int>* set_1 = &vertices;
+	std::vector<int>* set_2 = &neighbour->vertices;
+
+
+	int index = 0;
+	for (int i = 0; i < neighbours.size(); i++) {
+		if (neighbours.at(i).pointer->uniqueID == neighbour->uniqueID) {
+			index = i;
+			break;
+		}
+	}
+	if (neighbours.at(index).internal_tangent1.isNull()) {
+		find_tangent(&polygon2D::leftOn, &polygon2D::rightOn, set_1, set_2, &internal_tangent1);
+		find_tangent(&polygon2D::rightOn, &polygon2D::leftOn, set_1, set_2, &internal_tangent2);
+		find_tangent(&polygon2D::rightOn, &polygon2D::rightOn, set_1, set_2, &external_tangent1);
+		find_tangent(&polygon2D::leftOn, &polygon2D::leftOn, set_1, set_2, &external_tangent2);
+
+		internal_range = polygonEdge(internal_tangent1.x2, internal_tangent1.y2, internal_tangent2.x2, internal_tangent2.y2);
+		external_range = polygonEdge(external_tangent1.x2, external_tangent1.y2, external_tangent2.x2, external_tangent2.y2);
+
+		neighbours.at(index).update_tangents_info(internal_tangent1, internal_tangent2, internal_range,
+			external_tangent1, external_tangent2, external_range);
+		neighbours.at(index).visible = true;
+
+		for (int i = 0; i < neighbour->neighbours.size(); i++) {
+			if (neighbour->neighbours.at(i).pointer->uniqueID == uniqueID) {
+				neighbour->neighbours.at(i).update_tangents_info(internal_tangent1.invert(), internal_tangent2.invert(),
+					polygonEdge(internal_tangent1.x1, internal_tangent1.y1, internal_tangent2.x1, internal_tangent2.y1),
+					external_tangent2.invert(), external_tangent1.invert(),
+					polygonEdge(external_tangent2.x1, external_tangent2.y1, external_tangent1.x1, external_tangent1.y1));
+			}
+		}
+	}
+	else {
+		external_tangent1 = neighbours.at(index).external_tangent1;
+		external_tangent2 = neighbours.at(index).external_tangent2;
+		external_range = neighbours.at(index).external_range;
+		internal_tangent1 = neighbours.at(index).internal_tangent1;
+		internal_tangent2 = neighbours.at(index).internal_tangent2;
+		internal_range = neighbours.at(index).internal_range;
+
+		neighbours.at(index).visibility_limit_left = external_tangent1;
+		neighbours.at(index).visibility_limit_right = external_tangent2;
+		neighbours.at(index).visibility_range = external_range;
+		neighbours.at(index).visible = true;
+	}*/
+}
+
+void ellipse::create_neighbour_map(std::vector<ellipse>* obstacles, local_visualizer* render_agent) {
+
+	/*
+	* NEAREST NEIGHBOURS
+	* Step I : iterate through all ellipses; for each ellipse, sort remaining ones in order of distances
+	* Step II : In this order -> call a function to locate nearest neighbours by filtering out far ones
+	* Step III : Push located neighbours data to vector
+	*/
+
+	int clear_count = 0;
+
+	// sort list to iterate through nearest objects first; will reduce unnecessary computations
+	std::vector<int> traversal_order = create_priority_list(obstacles);
+
+	for (int i = 0; i < obstacles->size(); i++) {
+		// iterate in a systematic way by this traversal
+		//ellipse* obstacle = &obstacles->at(i);
+		// greedy approach; iterating through nearest obstacle first
+		ellipse* obstacle = &obstacles->at(traversal_order.at(i));
+		if (this == obstacle) {
+			continue;
+		}
+
+		// check if this obstacle is already shielded by existing neighbour "petals"
+		if (checkShielded_reloaded(obstacle, render_agent)) {
+			continue;
+		}
+		else {
+			// if not shielded; add this obstacle to neighbour list
+			// First compute tangents and compute neighboursSweep object for that
+			// compute tangents
+			//tangents_handler(obstacle, render_agent);
+			approximate_tangent(obstacle);
+			// refine boundaries to minimise overlap and get more accurate insights
+			//visibility_handler(obstacle, render_agent);
+		}
+
+
+		/*//visualizer section :
+		if (false) {
+			neighbourSweep* neighbour = &neighbours.at(neighbours.size() - 1);
+			for (int index = 0; index < neighbours.size(); index++) {
+				if (obstacle->uniqueID == neighbours.at(index).pointer->uniqueID) {
+					neighbour = &neighbours.at(index);
+				}
+			}
+
+			render_agent->add_path(&neighbour->internal_tangent1, true);
+			render_agent->add_path(&neighbour->internal_tangent2, true);
+			render_agent->add_path(&neighbour->internal_range, true);
+			render_agent->add_path(&neighbour->external_tangent1, true);
+			render_agent->add_path(&neighbour->external_tangent2, true);
+			render_agent->add_path(&neighbour->external_range, true);
+			polygonEdge temp_edge = polygonEdge(neighbour->pointer->looseBounds.left, neighbour->pointer->looseBounds.top,
+				neighbour->pointer->looseBounds.left, neighbour->pointer->looseBounds.bottom);
+			render_agent->add_path(&temp_edge);
+			temp_edge = polygonEdge(neighbour->pointer->looseBounds.left, neighbour->pointer->looseBounds.bottom,
+				neighbour->pointer->looseBounds.right, neighbour->pointer->looseBounds.bottom);
+			render_agent->add_path(&temp_edge);
+			temp_edge = polygonEdge(neighbour->pointer->looseBounds.right, neighbour->pointer->looseBounds.bottom,
+				neighbour->pointer->looseBounds.right, neighbour->pointer->looseBounds.top);
+			render_agent->add_path(&temp_edge);
+			temp_edge = polygonEdge(neighbour->pointer->looseBounds.right, neighbour->pointer->looseBounds.top,
+				neighbour->pointer->looseBounds.left, neighbour->pointer->looseBounds.top);
+			render_agent->add_path(&temp_edge);
+
+			clear_count += 10;
+
+			render_agent->invalidate();
+			std::cin.ignore();
+
+			render_agent->clear_paths(clear_count);
+			clear_count = 0;
+		}*/
+	}
+	//visibility_handler_reloaded(render_agent);
 }
 
 local_visualizer::local_visualizer(void) {
@@ -439,7 +926,7 @@ void elliptical_approx::init(std::vector<Node>* node_list, int width, int height
 		cluster->clustering_3(node_list, GRID_WIDTH, points.at(i));
 	}
 
-	quad_builder builder = quad_builder(cluster->ellipse_list);
+	quad_builder builder = quad_builder(cluster->ellipse_list, &render_agent);
 	map_builder = &builder;
 }
 
@@ -1409,43 +1896,53 @@ void convex_clustering::ellipse_fitter(int poly_index) {
 
 }
 
-quad_builder::quad_builder(std::vector<ellipse> list) {
+quad_builder::quad_builder(std::vector<ellipse> list, local_visualizer* render_agent) {
 	obstacles = list;
+	this->render_agent = render_agent;
+
 	/*
-	// create empty neighbour map spaces
-	for (int j = 0; j < obstacles.size(); j++) {
-		for (int i = 0; i < obstacles.size(); i++) {
-			if (obstacles.at(j).uniqueID == obstacles.at(i).uniqueID) {
-				continue;
-			}
-			obstacles.at(j).neighbours.push_back(ellipse::neighbourSweep(&obstacles.at(i), j + 1));
+	* Constructs the quad map from ellipses
+	* Step I : find nearest neighbours first
+	* Step II : compute the quad for each pair
+	* Step III : look for intersection tests and create map from these quads
+	*/
+
+	// Step I : nearest neighbours
+	for (int i = 0; i < obstacles.size(); i++) {
+		obstacles.at(i).create_neighbour_map(&obstacles, render_agent);
+	}
+
+	// Step II : quad pair computation
+	for (int i = 0; i < obstacles.size(); i++) {
+		for (int j = 0; j < obstacles.at(i).neighbours.size(); j++) {
+			ellipse::neighbourSweep sweep = obstacles.at(i).neighbours.at(j);
+			quad_list.push_back(quad(sweep.external_tangent1, sweep.external_tangent2, quad_list.size()));
 		}
 	}
 
-	// initialise neighbour details
-	std::vector<float> vertices;
-	for (auto& obstacle : obstacles) {
-		obstacle.create_neighbour_map(&obstacles, &render_agent);
+	// Step III : create quad map
+	stich_quads();
+}
 
-		render_agent.visualizing_helper3(&obstacle, &vertices);
-		//std::cin.ignore();
-	}
+void quad_builder::stich_quads(void) {
+	/*
+	* Step I : Keep Iterating through quad-list : we will add one quad per iteration 
+				and *remove* it from the list -- need not remove as well
+	* Step II : In each iteration : traverse through each quad in stitched map; if any 
+				quad intersects the quad of interest. Add this quad to their list of neighbours
+	* * For all this maintain a bi-directional tree and mechanism to traverse through it.
+	*/
+	std::vector<bool> checklist(quad_list.size(), false);
 
-	for (int j = 0; j < obstacles.size(); j++) {
-		std::cout << "[SIZE] : " << obstacles.at(j).neighbours.size() << std::endl;
-	}
+	for (int i = 0; i < quad_list.size(); i++) {
 
-	// importance factor
-	for (int j = 0; j < obstacles.size(); j++) {
-		for (int i = 0; i < obstacles.at(j).neighbours.size(); i++) {
-			if (obstacles.at(j).neighbours.at(i).visible) {
-				std::cout << "[VISIBLE] ";
-				obstacles.at(j).neighbours.at(i).compute_importance();
-			}
-			else {
-				std::cout << "[HIDDEN]" << std::endl;
-			}
+		if (quad_map == nullptr) {
+			quad_map = &quad_list.at(i);
+			continue;
 		}
-		std::cout << " -------------------------------------------------------------- \n";
-	}*/
+		else {
+			// add this quad to all the quads in the map that intersects with it.
+			quad_map->map_expander(&quad_list.at(i), &checklist);
+		}
+	}
 }

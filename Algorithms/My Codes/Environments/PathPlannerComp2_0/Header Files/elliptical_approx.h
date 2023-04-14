@@ -40,18 +40,20 @@ struct Line {
 	float x1, y1, x2, y2;
 };
 
-class tangent {
+class ellipse;
+
+class vector_segment {
 public:
 	float x1, y1, x2, y2;
 
-	tangent() {
+	vector_segment() {
 		this->x1 = 0;
 		this->x2 = 0;
 		this->y1 = 0;
 		this->y2 = 0;
 	}
 
-	tangent(float x1, float y1, float x2, float y2) {
+	vector_segment(float x1, float y1, float x2, float y2) {
 		this->x1 = x1;
 		this->y1 = y1;
 		this->x2 = x2;
@@ -64,23 +66,48 @@ public:
 
 	bool rightOn(float x3, float y3);
 
-	bool isIntersecting(tangent* edge);
+	bool isIntersecting(vector_segment* edge);
 
-	bool isExtendedIntersecting(tangent* edge);
+	bool isExtendedIntersecting(vector_segment* edge);
 
-	bool isVectorExtendedIntersecting(tangent* edge);
+	bool isVectorExtendedIntersecting(vector_segment* edge);
 
-	bool isStrictlyVectorExtendedIntersecting(tangent* edge);
+	bool isStrictlyVectorExtendedIntersecting(vector_segment* edge);
 
 	float length(void);
 
 	bool isNull(void) { return (x1 == 0 && x2 == 0 && y1 == 0 && y2 == 0); }
 
-	tangent invert(void);
+	vector_segment invert(void);
 
 	float min_distance_from_line_segment(float x, float y);
 
-	float dot_product(tangent* edge);
+	float dot_product(vector_segment* edge);
+
+	float perpendicular_distance(float x, float y);
+
+	void intersection_points(ellipse* ellipse, vector_segment* result);
+};
+
+class quad {
+public:
+	vector_segment free1, free2, blocked1, blocked2;
+	std::vector<quad*> neighbours;
+	int id = 0;
+
+	quad(vector_segment external_tangent_1, vector_segment external_tangent_2, int id) {
+		free1 = external_tangent_1;
+		free2 = external_tangent_2;
+		blocked1 = vector_segment(external_tangent_1.x1, external_tangent_1.y1,
+			external_tangent_2.x1, external_tangent_2.y1);
+		blocked2 = vector_segment(external_tangent_1.x2, external_tangent_1.y2,
+			external_tangent_2.x2, external_tangent_2.y2);
+		this->id = id;
+	}
+
+	bool isIntersecting(quad* quad);
+
+	void map_expander(quad* quad, std::vector<bool>* checklist);
 };
 
 static class CompGeomFuncEllipseApprox {
@@ -89,22 +116,26 @@ public:
 
 	static bool rightOn(float x1, float y1, float x2, float y2, float x0, float y0);
 
-	static point intersection_point(tangent* slicee_edge, tangent* slicer_edge);
+	static point intersection_point(vector_segment* slicee_edge, vector_segment* slicer_edge);
 
-	static bool isIntersecting(tangent* edge1, tangent* edge2);
+	static bool isIntersecting(vector_segment* edge1, vector_segment* edge2);
 
-	static bool isExtendedIntersecting(tangent* fixed_edge, tangent* extendable_edge);
+	static bool isExtendedIntersecting(vector_segment* fixed_edge, vector_segment* extendable_edge);
 
-	static bool isVectorExtendedIntersecting(tangent* fixed_edge, tangent* extendable_edge);
+	static bool isVectorExtendedIntersecting(vector_segment* fixed_edge, vector_segment* extendable_edge);
 
 	static float distance(float x1, float y1, float x2, float y2);
 
 	static int getSign(float x);
 };
 
+class local_visualizer;
+
 class ellipse {
 public:
 	int uniqueID = 0;
+	class neighbourSweep;
+	std::vector<neighbourSweep> neighbours;
 
 	float center_x, center_y, a, b, tilt;
 	ellipse() {
@@ -126,10 +157,10 @@ public:
 
 	class neighbourSweep {
 	public:
-		tangent internal_tangent1, internal_tangent2, internal_range,
+		vector_segment internal_tangent1, internal_tangent2, internal_range,
 			external_tangent1, external_tangent2, external_range;
-		tangent visibility_limit_left, visibility_limit_right, visibility_range;
-		tangent* temp_left_pointer = nullptr, * temp_right_pointer = nullptr;
+		vector_segment visibility_limit_left, visibility_limit_right, visibility_range;
+		vector_segment* temp_left_pointer = nullptr, * temp_right_pointer = nullptr;
 		ellipse* pointer;
 		bool visible = false;
 		bool direct_neighbour = true;
@@ -138,50 +169,56 @@ public:
 		int rank = 0;
 
 		neighbourSweep(ellipse* neighbour, int me_id) {
-			this->internal_tangent1 = tangent();
-			this->internal_tangent2 = tangent();
-			this->internal_range = tangent();
-			this->external_tangent1 = tangent();
-			this->external_tangent2 = tangent();
-			this->external_range = tangent();
+			this->internal_tangent1 = vector_segment();
+			this->internal_tangent2 = vector_segment();
+			this->internal_range = vector_segment();
+			this->external_tangent1 = vector_segment();
+			this->external_tangent2 = vector_segment();
+			this->external_range = vector_segment();
 			this->pointer = neighbour;
 			this->id = ("GC" + std::to_string(me_id)) + ("X" + std::to_string(neighbour->uniqueID));
 			std::cout << "NEW quad created : " << this->id << std::endl;
 		}
 
-		void update_tangents_info(tangent internal_tangent1, tangent internal_tangent2, tangent internal_range,
-			tangent external_tangent1, tangent external_tangent2, tangent external_range);
+		void update_tangents_info(vector_segment internal_tangent1, vector_segment internal_tangent2,
+			vector_segment external_tangent1, vector_segment external_tangent2);
 
 		void evaluate_visibility_range(void);
 
 		int compute_importance(void);
 	};
 
+	class boundingChords {
+	public:
+		vector_segment bound1, bound2;
+		bool bound1_empty = true, bound2_empty = true, empty = true;
+
+		boundingChords() {
+			bound1 = vector_segment();
+			bound2 = vector_segment();
+			bound1_empty = true;
+			bound2_empty = true;
+			empty = true;
+		}
+		
+		boundingChords(vector_segment* bound1, vector_segment* bound2);
+
+		vector_segment* update_bound(vector_segment* original, vector_segment* update);
+
+		void intersection_update(boundingChords bound);
+	};
+
+	std::vector<int> create_priority_list(std::vector<ellipse>* obstacles);
+
+	bool checkShielded_reloaded(ellipse* neighbour, local_visualizer* render_agent);
+
+	void create_neighbour_map(std::vector<ellipse>* obstacles, local_visualizer* render_agent);
+
+	void approximate_tangent(ellipse* neighbour);
+
+	void tangents_handler(ellipse* neighbour, local_visualizer* render_agent);
+
 private:
-	std::vector<neighbourSweep> neighbours;
-};
-
-struct result {
-	int i = 0;
-	float area = 0.0f, independence = 0.0f, vertices = 0.0f, bridge_width = 0.0f, skewness = 0.0f;
-
-	result(int i, float area, float independence, float vertices, float bridge_width, float skewness) {
-		this->i = i;
-		this->area = area;
-		this->independence = independence;
-		this->vertices = vertices;
-		this->bridge_width = bridge_width;
-		this->skewness = skewness;
-	}
-
-	result(int i) {
-		this->i = i;
-		this->area = 0;
-		this->independence = 0;
-		this->vertices = 0;
-		this->bridge_width = 0;
-		this->skewness = 0;
-	}
 };
 
 class local_visualizer {
@@ -221,6 +258,29 @@ private:
 	//handling callbacks render-counter part function
 	typedef void (*external_render_counter_part)(std::vector<float>*);
 	external_render_counter_part render_callback;
+};
+
+struct result {
+	int i = 0;
+	float area = 0.0f, independence = 0.0f, vertices = 0.0f, bridge_width = 0.0f, skewness = 0.0f;
+
+	result(int i, float area, float independence, float vertices, float bridge_width, float skewness) {
+		this->i = i;
+		this->area = area;
+		this->independence = independence;
+		this->vertices = vertices;
+		this->bridge_width = bridge_width;
+		this->skewness = skewness;
+	}
+
+	result(int i) {
+		this->i = i;
+		this->area = 0;
+		this->independence = 0;
+		this->vertices = 0;
+		this->bridge_width = 0;
+		this->skewness = 0;
+	}
 };
 
 class convex_clustering {
@@ -328,10 +388,15 @@ private:
 
 class quad_builder {
 public:
-	quad_builder(std::vector<ellipse> list);
+	quad_builder(std::vector<ellipse> list, local_visualizer* render_agent);
 
 private:
 	std::vector<ellipse> obstacles;
+	std::vector<quad> quad_list;
+	local_visualizer* render_agent;
+	quad* quad_map;
+
+	void stich_quads(void);
 };
 
 #endif
