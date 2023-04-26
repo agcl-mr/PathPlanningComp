@@ -87,15 +87,20 @@ public:
 	float perpendicular_distance(float x, float y);
 
 	void intersection_points(ellipse* ellipse, vector_segment* result);
+
+	point intersection_points(vector_segment* edge);
 };
 
 class quad {
 public:
-	vector_segment free1, free2, blocked1, blocked2;
+	vector_segment free1, free2, blocked1, blocked2; // all these wrt. A
+	ellipse* me_A, * me_B;
 	std::vector<quad*> neighbours;
 	int id = 0;
 
-	quad(vector_segment external_tangent_1, vector_segment external_tangent_2, int id) {
+	quad(ellipse* me_A, ellipse* me_B, vector_segment external_tangent_1, vector_segment external_tangent_2, int id) {
+		this->me_A = me_A;
+		this->me_B = me_B;
 		free1 = external_tangent_1;
 		free2 = external_tangent_2;
 		blocked1 = vector_segment(external_tangent_1.x1, external_tangent_1.y1,
@@ -145,7 +150,7 @@ public:
 		b = 0.0f;
 		tilt = 0.0f;
 	}
-	ellipse(float center_x, float center_y, float a, float b, float tilt) {
+	ellipse(float center_x, float center_y, float a, float b, float tilt/*tilt has to be in radians*/) {
 		this->center_x = center_x;
 		this->center_y = center_y;
 		this->a = a;
@@ -212,9 +217,13 @@ public:
 
 	bool checkShielded_reloaded(ellipse* neighbour, local_visualizer* render_agent);
 
+	bool checkShielded_reloaded_v2(ellipse* neighbour, local_visualizer* render_agent);
+
 	void create_neighbour_map(std::vector<ellipse>* obstacles, local_visualizer* render_agent);
 
-	void approximate_tangent(ellipse* neighbour);
+	ellipse::neighbourSweep compute_approximate_tangent(ellipse* neighbour, local_visualizer* render_agent);
+
+	void approximate_tangent(ellipse* neighbour, local_visualizer* render_agent);
 
 	void tangents_handler(ellipse* neighbour, local_visualizer* render_agent);
 
@@ -238,7 +247,13 @@ public:
 
 	void add_path(Path path);
 
+	void add_path(vector_segment vector_segment);
+
+	void add_path(vector_segment vector_segment, Color color);
+
 	void draw_ellipse(ellipse ellipse);
+
+	int draw_ellipse(ellipse ellipse, Color color);
 
 	void draw_ears_v2(std::vector<int_point>* points, std::vector<std::vector<int>>* poly_indice);
 
@@ -247,6 +262,14 @@ public:
 	void visualize_ear_2(std::vector<int_point>* points, std::vector<int>* ear, bool clear_again);
 
 	void visualize_ear(int data_x[], int data_y[], std::vector<int>* ear, bool clear_again);
+
+	void visualize_nearest_neighbour_ellipses(ellipse* obstacle);
+
+	void shielding_visualizer(ellipse* obstacle, ellipse* neighbour);
+
+	void visualize_tangent_approximations(ellipse* object1, ellipse* object2);
+
+	void visualize_quads(quad* quad, bool ellipses, bool clear_back);
 
 	void show_edges(std::vector<Line>* edge_list);
 
