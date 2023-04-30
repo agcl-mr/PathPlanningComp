@@ -18,6 +18,16 @@
 
 struct Point {
 	double x, y;
+
+	bool equals(Point point) {
+		float del_x = std::abs(point.x - x);
+		float del_y = std::abs(point.y - y);
+		const float PRECISION = 0.01;
+
+		if (del_x < PRECISION && del_y < PRECISION)
+			return true;
+		return false;
+	}
 };
 
 struct int_point {
@@ -64,7 +74,11 @@ public:
 
 	bool leftOn(float x3, float y3);
 
+	float leftPredicate(float x3, float y3);
+
 	bool rightOn(float x3, float y3);
+
+	float subtended_angle_measure(float x3, float y3);
 
 	bool isIntersecting(vector_segment* edge);
 
@@ -88,8 +102,10 @@ public:
 
 	void intersection_points(ellipse* ellipse, vector_segment* result);
 
-	point intersection_points(vector_segment* edge);
+	Point intersection_points(vector_segment* edge);
 };
+
+class local_visualizer;
 
 class quad {
 public:
@@ -97,6 +113,7 @@ public:
 	ellipse* me_A, * me_B;
 	std::vector<quad*> neighbours;
 	int id = 0;
+	float area = 0.0;
 
 	quad(ellipse* me_A, ellipse* me_B, vector_segment external_tangent_1, vector_segment external_tangent_2, int id) {
 		this->me_A = me_A;
@@ -108,20 +125,35 @@ public:
 		blocked2 = vector_segment(external_tangent_1.x2, external_tangent_1.y2,
 			external_tangent_2.x2, external_tangent_2.y2);
 		this->id = id;
+		this->area = compute_area();
 	}
 
-	bool isIntersecting(quad* quad);
+	bool isIntersecting(quad* quad, local_visualizer* render_agent);
 
-	void map_expander(quad* quad, std::vector<bool>* checklist);
+	void map_expander(quad* quad, std::vector<bool>* checklist, local_visualizer* render_agent);
+
+	float compute_area(void);
+
+	float common_area(quad* quad, local_visualizer* render_agent);
+
+	float common_area_v2(quad* quad, local_visualizer* render_agent);
+
+	float poly_bounds(quad* quad, local_visualizer* render_agent);
+
+	bool clockwise_intersection_locator(std::vector<Point>* set_2,
+		vector_segment* edge1, int index_start_2, int* index_set2, Point* intersection_pt,
+		bool propogation);
 };
 
 static class CompGeomFuncEllipseApprox {
 public:
 	static bool leftOn(float x1, float y1, float x2, float y2, float x0, float y0);
 
+	static float leftPredicate(float x1, float y1, float x2, float y2, float x0, float y0);
+
 	static bool rightOn(float x1, float y1, float x2, float y2, float x0, float y0);
 
-	static point intersection_point(vector_segment* slicee_edge, vector_segment* slicer_edge);
+	static Point intersection_point(vector_segment* slicee_edge, vector_segment* slicer_edge);
 
 	static bool isIntersecting(vector_segment* edge1, vector_segment* edge2);
 
@@ -132,9 +164,9 @@ public:
 	static float distance(float x1, float y1, float x2, float y2);
 
 	static int getSign(float x);
-};
 
-class local_visualizer;
+	static float triangle_area(float x1, float y1, float x2, float y2, float x3, float y3);
+};
 
 class ellipse {
 public:
@@ -150,6 +182,7 @@ public:
 		b = 0.0f;
 		tilt = 0.0f;
 	}
+
 	ellipse(float center_x, float center_y, float a, float b, float tilt/*tilt has to be in radians*/) {
 		this->center_x = center_x;
 		this->center_y = center_y;
@@ -270,6 +303,10 @@ public:
 	void visualize_tangent_approximations(ellipse* object1, ellipse* object2);
 
 	void visualize_quads(quad* quad, bool ellipses, bool clear_back);
+
+	void visualize_quads_intersection(quad* quad1, quad* quad2);
+
+	void visualize_quads_intersection(quad* quad1, quad* quad2, std::vector<Point> poly);
 
 	void show_edges(std::vector<Line>* edge_list);
 

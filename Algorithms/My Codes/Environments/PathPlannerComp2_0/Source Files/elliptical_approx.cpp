@@ -4,11 +4,15 @@ bool CompGeomFuncEllipseApprox::leftOn(float x1, float y1, float x2, float y2, f
 	return ((x1 * (y2 - y0) + x2 * (y0 - y1) + x0 * (y1 - y2)) <= 0);
 }
 
+float CompGeomFuncEllipseApprox::leftPredicate(float x1, float y1, float x2, float y2, float x0, float y0) {
+	return (x1 * (y2 - y0) + x2 * (y0 - y1) + x0 * (y1 - y2));
+}
+
 bool CompGeomFuncEllipseApprox::rightOn(float x1, float y1, float x2, float y2, float x0, float y0) {
 	return ((x1 * (y2 - y0) + x2 * (y0 - y1) + x0 * (y1 - y2)) >= 0);
 }
 
-point CompGeomFuncEllipseApprox::intersection_point(vector_segment* slicee_edge, vector_segment* slicer_edge) {
+Point CompGeomFuncEllipseApprox::intersection_point(vector_segment* slicee_edge, vector_segment* slicer_edge) {
 	float x1, y1, x2, y2, a1, b1, a2, b2;
 	x1 = slicee_edge->x1;
 	y1 = slicee_edge->y1;
@@ -19,12 +23,12 @@ point CompGeomFuncEllipseApprox::intersection_point(vector_segment* slicee_edge,
 	a2 = slicer_edge->x2;
 	b2 = slicer_edge->y2;
 
-	point result;
+	Point result;
 	float denom1 = float((x2 - x1) * (b2 - b1) - (a2 - a1) * (y2 - y1));
 	if (denom1 == 0) {
-		std::cout << "[WARNING] : Parallel lines\n";
-		result.x = (x1 + x2) / 2;
-		result.y = (y1 + y2) / 2;
+		std::cout << "[WARNING] : Parallel lines. Assuming near mid-point as intersection point\n";
+		result.x = (x1 + x2 + a1 + a2) / 4;
+		result.y = (y1 + y2 + b1 + b2) / 4;
 	}
 	else {
 		result.x = float((a2 - a1) * (y1 * x2 - y2 * x1) - (x2 - x1) * (b1 * a2 - b2 * a1))
@@ -39,16 +43,24 @@ point CompGeomFuncEllipseApprox::intersection_point(vector_segment* slicee_edge,
 }
 
 bool CompGeomFuncEllipseApprox::isIntersecting(vector_segment* edge1, vector_segment* edge2) {
-	bool test1 = edge1->leftOn(edge2->x1, edge2->y1);
-	bool test2 = edge1->leftOn(edge2->x2, edge2->y2);
+	float test1 = edge1->leftPredicate(edge2->x1, edge2->y1);
+	if (test1 == 0)
+		return true;
+	float test2 = edge1->leftPredicate(edge2->x2, edge2->y2);
+	if (test2 == 0)
+		return true;
 
-	if (test1 == test2)
+	if (test1 / test2 > 0)
 		return false;
 
-	bool test3 = edge2->leftOn(edge1->x1, edge1->y1);
-	bool test4 = edge2->leftOn(edge1->x2, edge1->y2);
+	float test3 = edge2->leftPredicate(edge1->x1, edge1->y1);
+	if (test3 == 0)
+		return true;
+	float test4 = edge2->leftPredicate(edge1->x2, edge1->y2);
+	if (test4 == 0)
+		return true;
 
-	if (test3 == test4)
+	if (test3 / test4 > 0)
 		return false;
 
 	return true;
@@ -93,6 +105,10 @@ int CompGeomFuncEllipseApprox::getSign(float x) {
 		return 0;
 }
 
+float CompGeomFuncEllipseApprox::triangle_area(float x1, float y1, float x2, float y2, float x3, float y3) {
+	return (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
+}
+
 int vector_segment::checkLeft(float x3, float y3) {
 	float expression = (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
 	//if (expression != 0)
@@ -108,8 +124,26 @@ bool vector_segment::leftOn(float x3, float y3) {
 	return CompGeomFuncEllipseApprox::leftOn(x1, y1, x2, y2, x3, y3);
 }
 
+float vector_segment::leftPredicate(float x3, float y3) {
+	return CompGeomFuncEllipseApprox::leftPredicate(x1, y1, x2, y2, x3, y3);
+}
+
 bool vector_segment::rightOn(float x3, float y3) {
 	return CompGeomFuncEllipseApprox::rightOn(x1, y1, x2, y2, x3, y3);
+}
+
+float vector_segment::subtended_angle_measure(float x3, float y3) {
+	float a = length();
+	if (a < FLOATING_PRECISION)
+		return 0.0;
+	float c = CompGeomFunc::distance(x1, y1, x3, y3);
+	if (c < FLOATING_PRECISION)
+		return PI;
+	float b = CompGeomFunc::distance(x2, y2, x3, y3);
+	if (b < FLOATING_PRECISION)
+		return 0.0;
+	float angle = std::acos((a * a + b * b - c * c) / (2 * a * b));
+	return angle;
 }
 
 bool vector_segment::isIntersecting(vector_segment* edge) {
@@ -231,35 +265,73 @@ void vector_segment::intersection_points(ellipse* ellipse, vector_segment* resul
 	}
 }
 
-point vector_segment::intersection_points(vector_segment* edge) {
+Point vector_segment::intersection_points(vector_segment* edge) {
 	return CompGeomFuncEllipseApprox::intersection_point(this, edge);
 }
 
-bool quad::isIntersecting(quad* quad) {
-	if (blocked1.isIntersecting(&quad->free1) && blocked1.isIntersecting(&quad->free2))
+bool quad::isIntersecting(quad* quad, local_visualizer* render_agent) {
+	std::cout << "new pair\n";
+	std::cout << "Quad1 info : \n";
+	std::cout << "{blocked1 : ("
+		<< blocked1.x1 << ", " << blocked1.y1 << ", " << blocked1.x2 << ", " << blocked1.y2 << "), blocked2 : ("
+		<< blocked2.x1 << ", " << blocked2.y1 << ", " << blocked2.x2 << ", " << blocked2.y2 << "), free1 : ("
+		<< free1.x1 << ", " << free1.y1 << ", " << free1.x2 << ", " << free1.y2 << "), free2 : ("
+		<< free2.x1 << ", " << free2.y1 << ", " << free2.x2 << ", " << free2.y2 << ")}\n";
+	std::cout << "Quad2 info : \n";
+	std::cout << "{blocked1 : ("
+		<< quad->blocked1.x1 << ", " << quad->blocked1.y1 << ", " << quad->blocked1.x2 << ", " << quad->blocked1.y2 << "), blocked2 : ("
+		<< quad->blocked2.x1 << ", " << quad->blocked2.y1 << ", " << quad->blocked2.x2 << ", " << quad->blocked2.y2 << "), free1 : ("
+		<< quad->free1.x1 << ", " << quad->free1.y1 << ", " << quad->free1.x2 << ", " << quad->free1.y2 << "), free2 : ("
+		<< quad->free2.x1 << ", " << quad->free2.y1 << ", " << quad->free2.x2 << ", " << quad->free2.y2 << ")}\n";
+
+	render_agent->visualize_quads_intersection(this, quad);
+
+	bool check;
+
+	check = blocked1.isIntersecting(&quad->free1) && blocked1.isIntersecting(&quad->free2);
+	std::cout << " " << check << " ";
+	if (check)
 		return false;
-	if (blocked1.isIntersecting(&quad->blocked1) && blocked1.isIntersecting(&quad->blocked2))
+	check = blocked1.isIntersecting(&quad->blocked1) && blocked1.isIntersecting(&quad->blocked2);
+	std::cout << " " << check << " ";
+	if (check)
 		return false;
 
-	if (blocked2.isIntersecting(&quad->free1) && blocked2.isIntersecting(&quad->free2))
+	check = blocked2.isIntersecting(&quad->free1) && blocked2.isIntersecting(&quad->free2);
+	std::cout << " " << check << " ";
+	if (check)
 		return false;
-	if (blocked2.isIntersecting(&quad->blocked1) && blocked2.isIntersecting(&quad->blocked2))
-		return false;
-
-	if (quad->blocked1.isIntersecting(&free1) && quad->blocked1.isIntersecting(&free2))
-		return false;
-	if (quad->blocked1.isIntersecting(&blocked1) && quad->blocked1.isIntersecting(&blocked2))
-		return false;
-
-	if (quad->blocked2.isIntersecting(&free1) && quad->blocked2.isIntersecting(&free2))
-		return false;
-	if (quad->blocked2.isIntersecting(&blocked1) && quad->blocked2.isIntersecting(&blocked2))
+	check = blocked2.isIntersecting(&quad->blocked1) && blocked2.isIntersecting(&quad->blocked2);
+	std::cout << " " << check << " ";
+	if (check)
 		return false;
 
+	check = quad->blocked1.isIntersecting(&free1) && quad->blocked1.isIntersecting(&free2);
+	std::cout << " " << check << " ";
+	if (check)
+		return false;
+	check = quad->blocked1.isIntersecting(&blocked1) && quad->blocked1.isIntersecting(&blocked2);
+	std::cout << " " << check << " ";
+	if (check)
+		return false;
+
+	check = quad->blocked2.isIntersecting(&free1) && quad->blocked2.isIntersecting(&free2);
+	std::cout << " " << check << " ";
+	if (check)
+		return false;
+	check = quad->blocked2.isIntersecting(&blocked1) && quad->blocked2.isIntersecting(&blocked2);
+	std::cout << " " << check << " ";
+	if (check)
+		return false;
+
+
+	std::cout << "\n";
+
+	std::cout << " [INTERSECTION FOUND] : Inter-quad movement possible\n";
 	return true;
 }
 
-void quad::map_expander(quad* quad, std::vector<bool>* checklist) {
+void quad::map_expander(quad* quad, std::vector<bool>* checklist, local_visualizer* render_agent) {
 	/*
 	* If this is quad itself, return
 	* Check if this quad has been already visited; if yes, return
@@ -275,12 +347,519 @@ void quad::map_expander(quad* quad, std::vector<bool>* checklist) {
 	for (int i = 0; i < neighbours.size(); i++) {
 		if (checklist->at(neighbours.at(i)->id))
 			continue;
-		neighbours.at(i)->map_expander(quad, checklist);
+		neighbours.at(i)->map_expander(quad, checklist, render_agent);
 	}
 
 	// intersection code here!!
-	if (isIntersecting(quad))
+	if (isIntersecting(quad, render_agent))
 		neighbours.push_back(quad);
+}
+
+float quad::compute_area(void) {
+	float area = 0.0;
+	area += CompGeomFuncEllipseApprox::triangle_area(
+		free1.x1, free1.y1, free2.x1, free2.y1, free1.x2, free1.y2);
+	area += CompGeomFuncEllipseApprox::triangle_area(
+		free2.x1, free2.y1, free2.x2, free2.y2, free1.x2, free1.y2);
+	return area;
+}
+
+bool quad::clockwise_intersection_locator(std::vector<Point>* set_2, 
+	vector_segment* edge1,int index_start_2, int* index_set2, Point* intersection_pt,
+	bool propogation) {
+
+	for (int i = 0; i < set_2->size(); i++) {
+		if (propogation) {
+			if (i == set_2->size() - 1)
+				continue;
+		}
+		int index1 = (i + index_start_2 - 1) % set_2->size();
+		int index2 = (i + index_start_2) % set_2->size();
+		vector_segment edge2 = vector_segment(set_2->at(index1).x, set_2->at(index1).y,
+			set_2->at(index2).x, set_2->at(index2).y);
+
+		if (edge1->isIntersecting(&edge2)) {
+			Point intersection = edge1->intersection_points(&edge2);
+			*index_set2 = index2;
+			*intersection_pt = intersection;
+			return true;
+		}
+	}
+	return false;
+}
+
+int call_count = 0;
+bool special_debugger = false;
+float quad::common_area(quad* quad, local_visualizer* render_agent) {
+	std::cout << "call count : " << ++call_count << std::endl;
+	if (call_count == 10)
+		special_debugger = true;
+	/*
+	* Step I : Iterate through sides of both quads in clockwise fashion until first
+	*			intersection point is located. add this point to intersection polygon
+	*			point set
+	* 
+	* Step II : To look for next point: check if the next vertex of one quad is on left
+	*			to current edge of the other quad. Whichever satisfies this condition, 
+	*			choose that edge
+	* 
+	* Step III : Keep continuing the hunt until point starts repeating
+	*/
+	std::cout << "On a mission: to compute area of common region between two intersecting quads\n";
+	//render_agent->visualize_quads_intersection(this, quad);
+	float area = 0.0;
+
+	std::vector<Point> set_1, set_2, common_region;
+
+	set_1.push_back(Point(free1.x1, free1.y1));
+	set_1.push_back(Point(free2.x1, free2.y1));
+	set_1.push_back(Point(free2.x2, free2.y2));
+	set_1.push_back(Point(free1.x2, free1.y2));
+
+	set_2.push_back(Point(quad->free1.x1, quad->free1.y1));
+	set_2.push_back(Point(quad->free2.x1, quad->free2.y1));
+	set_2.push_back(Point(quad->free2.x2, quad->free2.y2));
+	set_2.push_back(Point(quad->free1.x2, quad->free1.y2));
+
+	Point intersection = Point();
+	int index1 = 0, index2 = 0;
+
+	// locate the first intersection
+	for (int i = 0; i < set_1.size(); i++) {
+		vector_segment edge1 = vector_segment(
+			set_1.at((i - 1) % set_1.size()).x,
+			set_1.at((i - 1) % set_1.size()).y,
+			set_1.at(i).x,
+			set_1.at(i).y
+		);
+		bool result = clockwise_intersection_locator(&set_2, &edge1, 0, &index2, &intersection, false);
+		if (result) {
+			common_region.push_back(intersection);
+			index1 = i;
+			break;
+		}
+	}
+
+	if (common_region.empty()) {
+		return 0.0;
+	}
+
+	// first intersection in located by this point
+	bool flag_set1_vertice = false, flag_set2_vertice = false, success = false;
+	while (true) {
+		if (common_region.size() > 1) {
+			/*
+			* Only for propogation step
+			* configures indexes and edge variable for new edge
+			*/
+			// finding the first intersection on new line
+			vector_segment edge1;
+			if (flag_set1_vertice) {
+				std::cout << "[NOTICE] : flag_set1_vertice\n";
+				index1++;
+				edge1 = vector_segment(
+					intersection.x,
+					intersection.y,
+					set_1.at(index1 % set_1.size()).x,
+					set_1.at(index1 % set_1.size()).y
+				);
+				flag_set1_vertice = false;
+				bool result = clockwise_intersection_locator(&set_2, &edge1, 0, &index2, &intersection, false);
+				if (result) {
+					common_region.push_back(intersection);
+				}
+			}
+			else if (flag_set2_vertice) {
+				std::cout << "[NOTICE] : flag_set2_vertice\n";
+				index2++;
+				edge1 = vector_segment(
+					intersection.x,
+					intersection.y,
+					set_2.at(index2 % set_2.size()).x,
+					set_2.at(index2 % set_2.size()).y
+				);
+				flag_set2_vertice = false;
+				bool result = clockwise_intersection_locator(&set_1, &edge1, 0, &index1, &intersection, false);
+				if (result) {
+					common_region.push_back(intersection);
+				}
+			}
+			
+			if (common_region.at(0).equals(intersection)) {
+				success = true;
+				break;
+			}
+		}
+
+		while (true) {
+			vector_segment edge1;
+			if (common_region.size() == 1) { // initialization case
+				edge1 = vector_segment(
+					intersection.x,
+					intersection.y,
+					set_1.at(index1 % set_1.size()).x,
+					set_1.at(index1 % set_1.size()).y
+				);
+
+				bool result;
+				if (edge1.leftOn(set_2.at(index2 % set_2.size()).x, set_2.at(index2 % set_2.size()).y)) {
+					vector_segment edge = vector_segment(
+						intersection.x, intersection.y, set_2.at(index2 % set_2.size()).x, set_2.at(index2 % set_2.size()).y);
+					result = clockwise_intersection_locator(&set_1, &edge, index1 + 1, &index1, &intersection, true);
+				}
+				else {
+					vector_segment edge = vector_segment(
+						intersection.x, intersection.y, set_1.at(index1 % set_1.size()).x, set_1.at(index1 % set_1.size()).y);
+					result = clockwise_intersection_locator(&set_2, &edge, index2 + 1, &index2, &intersection, true);
+				}
+				if (!result) {
+					intersection = Point(set_1.at(index1 % set_1.size()).x, set_1.at(index1 % set_1.size()).y);
+					flag_set1_vertice = true;
+					if (special_debugger) {
+						std::cout << "issuing a set1 flag\n";
+						std::cin.ignore();
+					}
+				}
+			}
+			else {
+				// intersection at non-extreme point; continue with same edge
+				// check which set was last edge
+				if (common_region.at(common_region.size() - 2).equals(set_1.at((index1 - 1) % set_1.size()))) {
+					// remaining part is from set_1
+					edge1 = vector_segment(intersection.x, intersection.y, set_1.at(index1 % set_1.size()).x,
+						set_1.at(index1 % set_1.size()).y);
+
+					bool result;
+					if (edge1.leftOn(set_2.at(index2 % set_2.size()).x, set_2.at(index2 % set_2.size()).y)) {
+						vector_segment edge = vector_segment(
+							intersection.x, intersection.y, set_2.at(index2 % set_2.size()).x, set_2.at(index2 % set_2.size()).y);
+						result = clockwise_intersection_locator(&set_1, &edge, index1 + 1, &index1, &intersection, true);
+					}
+					else {
+						vector_segment edge = vector_segment(
+							intersection.x, intersection.y, set_1.at(index1 % set_1.size()).x, set_1.at(index1 % set_1.size()).y);
+						result = clockwise_intersection_locator(&set_2, &edge, index2 + 1, &index2, &intersection, true);
+					}
+					if (!result) {
+						intersection = Point(set_2.at(index2 % set_2.size()).x, set_2.at(index2 % set_2.size()).y);
+						flag_set2_vertice = true;
+						if (special_debugger) {
+							std::cout << "issuing a set2 flag\n";
+							std::cin.ignore();
+						}
+					}
+				}
+				else {
+					// remaining part is from set_2
+					edge1 = vector_segment(intersection.x, intersection.y, set_2.at(index2 % set_2.size()).x,
+						set_2.at(index2 % set_2.size()).y);
+
+					bool result;
+					if (edge1.leftOn(set_2.at(index2 % set_2.size()).x, set_2.at(index2 % set_2.size()).y)) {
+						vector_segment edge = vector_segment(
+							intersection.x, intersection.y, set_2.at(index2 % set_2.size()).x, set_2.at(index2 % set_2.size()).y);
+						result = clockwise_intersection_locator(&set_1, &edge, index1 + 1, &index1, &intersection, true);
+					}
+					else {
+						vector_segment edge = vector_segment(
+							intersection.x, intersection.y, set_1.at(index1 % set_1.size()).x, set_1.at(index1 % set_1.size()).y);
+						result = clockwise_intersection_locator(&set_2, &edge, index2 + 1, &index2, &intersection, true);
+					}
+					if (!result) {
+						intersection = Point(set_1.at(index1 % set_1.size()).x, set_1.at(index1 % set_1.size()).y);
+						flag_set1_vertice = true;
+						if (special_debugger) {
+							std::cout << "issuing a set1 flag\n";
+							std::cin.ignore();
+						}
+					}
+				}
+			}
+
+			if (common_region.at(0).equals(intersection)) {
+				success = true;
+				break;
+			}
+			common_region.push_back(intersection);
+
+			if (special_debugger) {
+				int no = common_region.size() - 1;
+				render_agent->add_path(Path(0.0, 0.0, common_region[no].x, common_region[no].y, Color(1.0, 1.0, 0.0)));
+				render_agent->invalidate();
+				std::cin.ignore();
+			}
+			
+			if (flag_set1_vertice || flag_set2_vertice)
+				break;
+		}
+		if (success)
+			break;
+	}
+	//compute area here
+
+	for (int i = 2; i < common_region.size(); i++) {
+		area -= CompGeomFuncEllipseApprox::triangle_area(
+			common_region.at(0).x,
+			common_region.at(0).y,
+			common_region.at(i - 1).x,
+			common_region.at(i - 1).y,
+			common_region.at(i).x,
+			common_region.at(i).y
+		);
+	}
+
+	std::cout << "[AREA] : " << area << std::endl;
+	render_agent->visualize_quads_intersection(this, quad, common_region);
+	//std::cin.ignore();
+
+	return area;
+}
+
+float quad::common_area_v2(quad* quad, local_visualizer* render_agent) {
+	render_agent->visualize_quads_intersection(this, quad);
+	float area = 0.0;
+
+	std::vector<Point> set_1, set_2, common_region, sorted_list;
+
+	set_1.push_back(Point(free1.x1, free1.y1));
+	set_1.push_back(Point(free2.x1, free2.y1));
+	set_1.push_back(Point(free2.x2, free2.y2));
+	set_1.push_back(Point(free1.x2, free1.y2));
+
+	set_2.push_back(Point(quad->free1.x1, quad->free1.y1));
+	set_2.push_back(Point(quad->free2.x1, quad->free2.y1));
+	set_2.push_back(Point(quad->free2.x2, quad->free2.y2));
+	set_2.push_back(Point(quad->free1.x2, quad->free1.y2));
+
+	// finding intersections
+	for (int i = 0; i < set_1.size(); i++) {
+		vector_segment edge1 = vector_segment(
+			set_1.at((i - 1) % set_1.size()).x,
+			set_1.at((i - 1) % set_1.size()).y,
+			set_1.at(i % set_1.size()).x,
+			set_1.at(i % set_1.size()).y);
+		for (int j = 0; j < set_2.size(); j++) {
+			vector_segment edge2 = vector_segment(
+				set_2.at((j - 1) % set_2.size()).x,
+				set_2.at((j - 1) % set_2.size()).y,
+				set_2.at(j % set_2.size()).x,
+				set_2.at(j % set_2.size()).y);
+			if (edge1.isIntersecting(&edge2)) {
+				common_region.push_back(edge1.intersection_points(&edge2));
+			}
+		}
+	}
+
+	// for interior points
+	for (int i = 0; i < set_1.size(); i++) {
+		Point point = Point(set_1.at(i).x, set_1.at(i).y);
+
+		for (int j = 0; j < set_2.size(); j++) {
+			vector_segment edge = vector_segment(
+				set_2.at((j - 1) % set_2.size()).x,
+				set_2.at((j - 1) % set_2.size()).y,
+				set_2.at(j % set_2.size()).x,
+				set_2.at(j % set_2.size()).y);
+			if (edge.rightOn(point.x, point.y)) {
+				break;
+			}
+			if (j == set_2.size() - 1) {
+				common_region.push_back(point);
+			}
+		}
+	}
+	for (int i = 0; i < set_2.size(); i++) {
+		Point point = Point(set_2.at(i).x, set_2.at(i).y);
+
+		for (int j = 0; j < set_1.size(); j++) {
+			vector_segment edge = vector_segment(
+				set_1.at((j - 1) % set_1.size()).x,
+				set_1.at((j - 1) % set_1.size()).y,
+				set_1.at(j % set_1.size()).x,
+				set_1.at(j % set_1.size()).y);
+			if (edge.rightOn(point.x, point.y)) {
+				break;
+			}
+			if (j == set_1.size() - 1) {
+				common_region.push_back(point);
+			}
+		}
+	}
+
+	// if no common point found : 
+	if (common_region.size() < 3) {
+		std::cout << " no intersection, area = 0.0\n";
+		return 0.0;
+	}
+
+	for (int i = 0; i < common_region.size(); i++) {
+		render_agent->add_path(Path(
+			common_region.at((i - 1) % common_region.size()).x,
+			common_region.at((i - 1) % common_region.size()).y,
+			common_region.at(i).x,
+			common_region.at(i).y, Color(1.0, 0.0, 0.0)));
+	}
+	render_agent->invalidate();
+	std::cin.ignore();
+
+	// sort these shortlisted points
+	int index = 0;
+	float val = -100000000000.0;
+	for (int i = 0; i < common_region.size(); i++) { // right-most point along x-axis
+		if (common_region.at(i).x > val) {
+			val = common_region.at(i).x;
+			index = i;
+		}
+	}
+	sorted_list.push_back(common_region.at(index));
+	common_region.erase(common_region.begin() + index);
+
+	render_agent->add_path(Path(0.0, 0.0,
+		sorted_list.at(sorted_list.size() - 1).x,
+		sorted_list.at(sorted_list.size() - 1).y, Color(1.0, 1.0, 0.0)));
+	render_agent->invalidate();
+	std::cin.ignore();
+
+	index = 0;
+	val = 100000000000.0;
+	for (int i = 0; i < common_region.size(); i++) {
+		float slope = (common_region[i].y - sorted_list[0].y) / (common_region[i].x - sorted_list[0].x);
+		if (slope < val) {
+			val = slope;
+			index = i;
+		}
+	}
+	std::cout << "common_region.at(index) : " << common_region.at(index).x << " " << common_region.at(index).y << "\n";
+	sorted_list.push_back(common_region.at(index));
+	common_region.erase(common_region.begin() + index);
+	render_agent->add_path(Path(0.0, 0.0,
+		sorted_list.at(sorted_list.size() - 1).x,
+		sorted_list.at(sorted_list.size() - 1).y, Color(1.0, 1.0, 0.0)));
+	render_agent->invalidate();
+	std::cin.ignore();
+
+	for (int i = 0; i < common_region.size(); i++) {
+		int pos = sorted_list.size() - 1;
+		vector_segment edge = vector_segment(sorted_list.at(pos - 1).x, sorted_list.at(pos - 1).y,
+			sorted_list.at(pos).x, sorted_list.at(pos).y);
+		val = edge.subtended_angle_measure(common_region.at(0).x, common_region.at(0).y);
+		index = 0;
+		std::cout << "val : " << val << std::endl;
+
+		for (int j = 1; j < common_region.size(); j++) {
+			float val_j = edge.subtended_angle_measure(common_region.at(j).x, common_region.at(j).y);
+			std::cout << "val_" << j << " : " << val_j << std::endl;
+			if (val_j > val) {
+				val = val_j;
+				index = j;
+			}
+		}
+		std::cout << "pushed index " << index << " for val = " << val << std::endl;
+		sorted_list.push_back(common_region.at(index));
+		common_region.erase(common_region.begin() + index);
+		i--;
+
+		render_agent->add_path(Path(0.0, 0.0,
+			sorted_list.at(sorted_list.size() - 1).x,
+			sorted_list.at(sorted_list.size() - 1).y, Color(1.0, 1.0, 0.0)));
+		render_agent->invalidate();
+		std::cin.ignore();
+	}
+
+	render_agent->clear_paths(sorted_list.size() * 2);
+
+	//compute area
+	for (int i = 2; i < sorted_list.size(); i++) {
+		area -= CompGeomFuncEllipseApprox::triangle_area(
+			sorted_list.at(0).x,
+			sorted_list.at(0).y,
+			sorted_list.at(i - 1).x,
+			sorted_list.at(i - 1).y,
+			sorted_list.at(i).x,
+			sorted_list.at(i).y
+		);
+	}
+	if (area < 0.001)
+		area = 0.0;
+
+	std::cout << "[AREA] : " << area << std::endl;
+	render_agent->visualize_quads_intersection(this, quad, sorted_list);
+	//std::cin.ignore();
+
+	return area;
+}
+
+float quad::poly_bounds(quad* quad, local_visualizer* render_agent) {
+	float area = 0.0;
+
+	std::vector<Point> set_1, set_2, unified_region;
+
+	set_1.push_back(Point(free1.x1, free1.y1));
+	set_1.push_back(Point(free1.x2, free1.y2));
+	set_1.push_back(Point(free2.x2, free2.y2));
+	set_1.push_back(Point(free2.x1, free2.y1));
+
+	set_2.push_back(Point(quad->free1.x1, quad->free1.y1));
+	set_2.push_back(Point(quad->free1.x2, quad->free1.y2));
+	set_2.push_back(Point(quad->free2.x2, quad->free2.y2));
+	set_2.push_back(Point(quad->free2.x1, quad->free2.y1));
+
+	Point intersection = Point();
+	int index1 = 0, index2 = 0;
+
+	for (int i = 0; i < set_1.size(); i++) {
+		unified_region.push_back(set_1.at((i) % set_1.size()));
+		vector_segment edge1 = vector_segment(
+			set_1.at((i - 1) % set_1.size()).x,
+			set_1.at((i - 1) % set_1.size()).y,
+			set_1.at(i).x,
+			set_1.at(i).y);
+		for (int j = 0; j < set_2.size(); j++) {
+			if (edge1.rightOn(set_2.at(j).x, set_2.at(j).y)) {
+				index2 = j;
+				break;
+			}
+		}
+		for (int j = 0; j < set_2.size(); j++) {
+			vector_segment edge2 = vector_segment(
+				set_2.at((j + index2) % set_2.size()).x,
+				set_2.at((j + index2) % set_2.size()).y,
+				set_2.at((j + index2 + 1) % set_2.size()).x,
+				set_2.at((j + index2 + 1) % set_2.size()).y);
+			bool flag_intersection_found = false;
+
+			if (edge1.isIntersecting(&edge2)) {
+				intersection = edge1.intersection_points(&edge2);
+				unified_region.push_back(intersection);
+				for (int k = 0; k < set_2.size(); k++) {
+					unified_region.push_back(set_2.at((k + j + index2 + 1) % set_2.size()));
+					edge2 = vector_segment(
+						set_2.at((k + j + index2 + 1) % set_2.size()).x,
+						set_2.at((k + j + index2 + 1) % set_2.size()).y,
+						set_2.at((k + j + index2 + 2) % set_2.size()).x,
+						set_2.at((k + j + index2 + 2) % set_2.size()).y);
+					if (edge2.isIntersecting(&edge1)) {
+						flag_intersection_found = true;
+						break;
+					}
+				}
+			}
+
+			if (flag_intersection_found) {
+				intersection = edge1.intersection_points(&edge2);
+				unified_region.push_back(intersection);
+				break;
+			}
+			else {
+				// get next edge1 for the original edge2
+				// reset j th loop
+				j--;
+
+			}
+		}
+	}
+
+	return area;
 }
 
 void ellipse::neighbourSweep::update_tangents_info(vector_segment internal_tangent1, vector_segment internal_tangent2,
@@ -574,12 +1153,12 @@ bool ellipse::checkShielded_reloaded_v2(ellipse* neighbour, local_visualizer* re
 			// case of partial exposure
 			if (!check1 || !check2) {
 				// tangent 1 is cut accross by the line of concern
-				point intersection_points = exposed_segments.at(j).intersection_points(
+				Point intersection_points = exposed_segments.at(j).intersection_points(
 					&neighbours.at(i).internal_tangent1);
 				if (check1) { // leading end of edge in left most interest zone
 					if (check4) {
 						// double cut
-						point secondary_intersection = exposed_segments.at(j).intersection_points(
+						Point secondary_intersection = exposed_segments.at(j).intersection_points(
 							&neighbours.at(i).internal_tangent2);
 						exposed_segments.push_back(vector_segment(secondary_intersection.x,
 							secondary_intersection.y, exposed_segments.at(j).x2,
@@ -598,7 +1177,7 @@ bool ellipse::checkShielded_reloaded_v2(ellipse* neighbour, local_visualizer* re
 				if (check2) { // trailing(rear) end of edge in left most interest zone
 					if (check3) {
 						// double cut
-						point secondary_intersection = exposed_segments.at(j).intersection_points(
+						Point secondary_intersection = exposed_segments.at(j).intersection_points(
 							&neighbours.at(i).internal_tangent2);
 						exposed_segments.push_back(vector_segment(exposed_segments.at(j).x1,
 							exposed_segments.at(j).y1, secondary_intersection.x,
@@ -615,12 +1194,12 @@ bool ellipse::checkShielded_reloaded_v2(ellipse* neighbour, local_visualizer* re
 			}
 			if (!check3 || !check4) {
 				// tangent 2 is cut accross by the line of concern
-				point intersection_points = exposed_segments.at(j).intersection_points(
+				Point intersection_points = exposed_segments.at(j).intersection_points(
 					&neighbours.at(i).internal_tangent2);
 				if (check3) { // leading end of edge in right most interest zone
 					if (check2) {
 						// double cut
-						point secondary_intersection = exposed_segments.at(j).intersection_points(
+						Point secondary_intersection = exposed_segments.at(j).intersection_points(
 							&neighbours.at(i).internal_tangent1);
 						exposed_segments.push_back(vector_segment(secondary_intersection.x,
 							secondary_intersection.y, exposed_segments.at(j).x2,
@@ -637,7 +1216,7 @@ bool ellipse::checkShielded_reloaded_v2(ellipse* neighbour, local_visualizer* re
 				if (check4) { // trailing(rear) end of edge in right most interest zone
 					if (check1) {
 						// double cut
-						point secondary_intersection = exposed_segments.at(j).intersection_points(
+						Point secondary_intersection = exposed_segments.at(j).intersection_points(
 							&neighbours.at(i).internal_tangent1);
 						exposed_segments.push_back(vector_segment(exposed_segments.at(j).x1,
 							exposed_segments.at(j).y1, secondary_intersection.x,
@@ -1048,8 +1627,58 @@ int local_visualizer::draw_ellipse(ellipse ellipse, Color color) {
 	return DIVISIONS;
 }
 
-void local_visualizer::visualize_quads(quad* quad, bool ellipses, bool clear_back) {
+void local_visualizer::visualize_quads_intersection(quad* quad1, quad* quad2) {
 	if (true) {
+		int path_count = 0;
+		add_path(quad1->blocked1, Color(1.0, 0.0, 0.0));
+		add_path(quad1->blocked2, Color(1.0, 0.0, 0.0));
+		add_path(quad1->free1, Color(0.0, 0.0, 1.0));
+		add_path(quad1->free2, Color(0.0, 0.0, 1.0));
+		path_count += 4;
+
+		add_path(quad2->blocked1, Color(1.0, 1.0, 1.0));
+		add_path(quad2->blocked2, Color(1.0, 1.0, 1.0));
+		add_path(quad2->free1, Color(0.0, 0.0, 0.0));
+		add_path(quad2->free2, Color(0.0, 0.0, 0.0));
+		path_count += 4;
+
+		invalidate();
+
+		std::cin.ignore();
+		if (true)
+			clear_paths(path_count);
+	}
+}
+
+void local_visualizer::visualize_quads_intersection(quad* quad1, quad* quad2, std::vector<Point> poly) {
+	if (true) {
+		int path_count = 0;
+		add_path(quad1->blocked1, Color(0.0, 0.0, 0.0));
+		add_path(quad1->blocked2, Color(0.0, 0.0, 0.0));
+		add_path(quad1->free1, Color(0.0, 0.0, 0.0));
+		add_path(quad1->free2, Color(0.0, 0.0, 0.0));
+		path_count += 4;
+
+		add_path(quad2->blocked1, Color(0.0, 0.0, 0.0));
+		add_path(quad2->blocked2, Color(0.0, 0.0, 0.0));
+		add_path(quad2->free1, Color(0.0, 0.0, 0.0));
+		add_path(quad2->free2, Color(0.0, 0.0, 0.0));
+		path_count += 4;
+
+		for (int i = 1; i < poly.size(); i++) {
+			add_path(Path(poly[i - 1].x, poly[i - 1].y, poly[i].x, poly[i].y, Color(1.0, 1.0, 1.0)));
+			path_count++;
+		}
+
+		invalidate();
+
+		std::cin.ignore();
+		clear_paths(path_count);
+	}
+}
+
+void local_visualizer::visualize_quads(quad* quad, bool ellipses, bool clear_back) {
+	if (false) {
 		int path_count = 0;
 		add_path(quad->blocked1, Color(1.0, 0.0, 0.0));
 		add_path(quad->blocked2, Color(1.0, 0.0, 0.0));
@@ -2260,12 +2889,15 @@ quad_builder::quad_builder(std::vector<ellipse> list, local_visualizer* render_a
 
 	// Step II : quad pair computation
 	for (int i = 0; i < obstacles.size(); i++) {
+		int starting_index = 0;
 		for (int j = 0; j < obstacles.at(i).neighbours.size(); j++) {
-			for (int k = 0; k < quad_list.size(); k++) {
+			/*for (int k = 0; k < quad_list.size(); k++) {
 				if ((quad_list.at(k).me_A == &obstacles.at(i)) || (quad_list.at(k).me_B == &obstacles.at(i))) {
 					continue;
 				}
-			}
+			}*/
+			if (j == 0)
+				starting_index = quad_list.size();
 			ellipse::neighbourSweep sweep = obstacles.at(i).neighbours.at(j);
 			quad_list.push_back(quad(
 				&obstacles.at(i),
@@ -2275,10 +2907,23 @@ quad_builder::quad_builder(std::vector<ellipse> list, local_visualizer* render_a
 				quad_list.size()));
 			//render_agent->visualize_quads(&quad_list.at(quad_list.size()-1), true, true);
 		}
+
+		for (int j = starting_index; j < quad_list.size(); j++) {
+			for (int k = starting_index; k < quad_list.size(); k++) {
+				if (j == k)
+					continue;
+				std::cout << "j = " << j << ". k = " << k << "\n";
+				//quad_list.at(j).common_area(&quad_list.at(k), render_agent);
+				quad_list.at(j).common_area_v2(&quad_list.at(k), render_agent);
+				//quad_list[3].common_area_v2(&quad_list[5], render_agent);
+			}
+		}
+		//quad_list[0].common_area(&quad_list[2], render_agent);
+		//quad_list[0].common_area_v2(&quad_list[2], render_agent);
 	}
 
 	// Step III : create quad map
-	stich_quads();
+	//stich_quads();
 }
 
 void quad_builder::stich_quads(void) {
@@ -2289,13 +2934,25 @@ void quad_builder::stich_quads(void) {
 				quad intersects the quad of interest. Add this quad to their list of neighbours
 	* * For all this maintain a bi-directional tree and mechanism to traverse through it.
 	*/
+
+	/*
+	* Idea II : 
+	* For the map traversal part. 
+	* Let it be in the vector format.
+	* -- For each quad in quad_list, run a nested loop to iterate through every other 
+	*/
+
 	std::vector<bool> checklist(quad_list.size(), false);
 	quad_map = &quad_list.at(0);
 
 	for (int i = 0; i < quad_list.size(); i++) {
 
 		// add this quad to all the quads in the map that intersects with it.
-		quad_map->map_expander(&quad_list.at(i), &checklist);
+		quad_map->map_expander(&quad_list.at(i), &checklist, render_agent);
 		render_agent->visualize_quads(&quad_list.at(i), false, false);
+
+		for (int j = 0; j < quad_list.size(); j++) {
+			checklist.at(j) = false;
+		}
 	}
 }

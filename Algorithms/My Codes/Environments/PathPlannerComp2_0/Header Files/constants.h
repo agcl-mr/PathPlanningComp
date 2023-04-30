@@ -13,4 +13,6 @@
 
 #define PI 2 * acos(0.0)
 
+#define FLOATING_PRECISION 0.001
+
 #endif
