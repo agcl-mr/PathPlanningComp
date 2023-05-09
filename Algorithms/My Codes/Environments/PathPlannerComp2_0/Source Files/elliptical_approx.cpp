@@ -194,6 +194,10 @@ float vector_segment::dot_product(vector_segment* edge) {
 	return ((this->x2 - this->x1) * (edge->x2 - edge->x1) + (this->y2 - this->y1) * (edge->y2 - edge->y1));
 }
 
+float vector_segment::normalized_dot_product(vector_segment* edge) {
+	return dot_product(edge)/(edge->length()*this->length());
+}
+
 float vector_segment::perpendicular_distance(float x, float y) {
 	/*
 	* equation of line : (y1-y2) x + (x2-x1) y - y1x2 + y2x1 = 0
@@ -267,6 +271,19 @@ void vector_segment::intersection_points(ellipse* ellipse, vector_segment* resul
 
 Point vector_segment::intersection_points(vector_segment* edge) {
 	return CompGeomFuncEllipseApprox::intersection_point(this, edge);
+}
+
+
+quad::sibling::sibling(quad* neighbour, float area_measure, float length_measure) {
+	this->path = neighbour;
+	this->area_measure = area_measure;
+	this->length_measure = length_measure;
+}
+
+float quad::sibling::importance_function1(void) {
+	float importance;
+	importance = area_measure;
+	return importance;
 }
 
 bool quad::isIntersecting(quad* quad, local_visualizer* render_agent) {
@@ -344,24 +361,86 @@ void quad::map_expander(quad* quad, std::vector<bool>* checklist, local_visualiz
 		return;
 
 	checklist->at(id) = true;
-	for (int i = 0; i < neighbours.size(); i++) {
-		if (checklist->at(neighbours.at(i)->id))
+	for (int i = 0; i < neighbours_A.size(); i++) {
+		if (checklist->at(neighbours_A.at(i).path->id))
 			continue;
-		neighbours.at(i)->map_expander(quad, checklist, render_agent);
+		neighbours_A.at(i).path->map_expander(quad, checklist, render_agent);
 	}
-
+	/*/
 	// intersection code here!!
 	if (isIntersecting(quad, render_agent))
-		neighbours.push_back(quad);
+		neighbours.push_back(sibling(quad, 0.0, 0.0));*/
 }
 
-float quad::compute_area(void) {
+void quad::estimate_ellipse_blockage(ellipse* ellip, vector_segment chord, float* area_reduction, 
+	float* length_reduction) {
 	float area = 0.0;
-	area += CompGeomFuncEllipseApprox::triangle_area(
+
+	// wrt ellipse frame of reference; order is {{a, 0}, {0, b}, {-a, 0}, {0, -b}}
+	std::vector<std::vector<float>> quad = {
+		{ellip->center_x + ellip->a * std::sin(ellip->tilt), ellip->center_y + ellip->a * std::cos(ellip->tilt)},
+		{ellip->center_x + ellip->b * std::cos(ellip->tilt), ellip->center_y - ellip->b * std::sin(ellip->tilt)},
+		{ellip->center_x - ellip->a * std::sin(ellip->tilt), ellip->center_y - ellip->a * std::cos(ellip->tilt)},
+		{ellip->center_x - ellip->b * std::cos(ellip->tilt), ellip->center_y + ellip->b * std::sin(ellip->tilt)}
+	};
+
+	vector_segment major = vector_segment(quad[0][0], quad[0][1], quad[2][0], quad[2][1]);
+	vector_segment minor = vector_segment(quad[1][0], quad[1][1], quad[3][0], quad[3][1]);
+	// checking if chord is along minor axis of ellipse
+	if (std::abs(major.normalized_dot_product(&chord)) < FLOATING_PRECISION) {
+		//0.5*PI*a*b*(chord.length()/(2*b))
+		area = 0.25 * PI * ellip->a * chord.length();
+		*area_reduction = area;
+		*length_reduction = area / chord.length();
+		return;
+	}
+	// checking if chord is along major axis of ellipse
+	if (std::abs(minor.normalized_dot_product(&chord)) < FLOATING_PRECISION) {
+		//0.5*PI*a*b*(chord.length()/(2*a))
+		area = 0.25 * PI * ellip->b * chord.length();
+		*area_reduction = area;
+		*length_reduction = area / chord.length();
+		return;
+	}
+
+	if (chord.rightOn(ellip->center_x, ellip->center_y)) {
+		area = (0.25 * PI * ellip->a * ellip->b - 0.5 * ellip->a * ellip->b) * (chord.length() / std::sqrt(ellip->a * ellip->a + ellip->b * ellip->b));
+		*area_reduction = area;
+		*length_reduction = area / chord.length();
+		return;
+	}
+	else {
+		area = (0.75 * PI * ellip->a * ellip->b + 0.5 * ellip->a * ellip->b) * (chord.length() / std::sqrt(ellip->a * ellip->a + ellip->b * ellip->b));
+		*area_reduction = area;
+		*length_reduction = area / chord.length();
+		return;
+	}
+
+	return;
+}
+
+void quad::compute_params(void) {
+	float area = 0.0, length = 0.0, del_area, del_length;
+
+	area -= CompGeomFuncEllipseApprox::triangle_area(
 		free1.x1, free1.y1, free2.x1, free2.y1, free1.x2, free1.y2);
-	area += CompGeomFuncEllipseApprox::triangle_area(
+	area -= CompGeomFuncEllipseApprox::triangle_area(
 		free2.x1, free2.y1, free2.x2, free2.y2, free1.x2, free1.y2);
-	return area;
+
+	length += CompGeomFuncEllipseApprox::distance((free1.x1 + free2.x1) / 2, (free1.y1 + free2.y1) / 2,
+		(free1.x2 + free2.x2) / 2, (free1.y2 + free2.y2) / 2);
+
+	estimate_ellipse_blockage(me_A, blocked1, &del_area, &del_length);
+	area -= del_area;
+	length -= del_length;
+
+	estimate_ellipse_blockage(me_B, blocked2.invert(), &del_area, &del_length);
+	area -= del_area;
+	length -= del_length;
+
+	this->mfa = area;
+	this->mpl = length;
+	this->mpw = area / length;
 }
 
 bool quad::clockwise_intersection_locator(std::vector<Point>* set_2, 
@@ -609,14 +688,14 @@ float quad::common_area(quad* quad, local_visualizer* render_agent) {
 	}
 
 	std::cout << "[AREA] : " << area << std::endl;
-	render_agent->visualize_quads_intersection(this, quad, common_region);
+	render_agent->visualize_quads_intersection(this, quad, &common_region);
 	//std::cin.ignore();
 
 	return area;
 }
 
-float quad::common_area_v2(quad* quad, local_visualizer* render_agent) {
-	render_agent->visualize_quads_intersection(this, quad);
+float quad::common_area_v2(quad* other, ellipse* common_ellipse, local_visualizer* render_agent) {
+	//render_agent->visualize_quads_intersection(this, quad);
 	float area = 0.0;
 
 	std::vector<Point> set_1, set_2, common_region, sorted_list;
@@ -626,10 +705,10 @@ float quad::common_area_v2(quad* quad, local_visualizer* render_agent) {
 	set_1.push_back(Point(free2.x2, free2.y2));
 	set_1.push_back(Point(free1.x2, free1.y2));
 
-	set_2.push_back(Point(quad->free1.x1, quad->free1.y1));
-	set_2.push_back(Point(quad->free2.x1, quad->free2.y1));
-	set_2.push_back(Point(quad->free2.x2, quad->free2.y2));
-	set_2.push_back(Point(quad->free1.x2, quad->free1.y2));
+	set_2.push_back(Point(other->free1.x1, other->free1.y1));
+	set_2.push_back(Point(other->free2.x1, other->free2.y1));
+	set_2.push_back(Point(other->free2.x2, other->free2.y2));
+	set_2.push_back(Point(other->free1.x2, other->free1.y2));
 
 	// finding intersections
 	for (int i = 0; i < set_1.size(); i++) {
@@ -686,26 +765,29 @@ float quad::common_area_v2(quad* quad, local_visualizer* render_agent) {
 		}
 	}
 
+	// remove redundant points
+	for (int i = 0; i < common_region.size(); i++) {
+		for (int j = i + 1; j < common_region.size(); j++) {
+			float del_x = std::abs(common_region.at(i).x - common_region.at(j).x);
+			float del_y = std::abs(common_region.at(i).y - common_region.at(j).y);
+			if (del_x < FLOATING_PRECISION && del_y < FLOATING_PRECISION) {
+				common_region.erase(common_region.begin() + j);
+				j--;
+			}
+		}
+	}
+
 	// if no common point found : 
 	if (common_region.size() < 3) {
 		std::cout << " no intersection, area = 0.0\n";
 		return 0.0;
 	}
 
-	for (int i = 0; i < common_region.size(); i++) {
-		render_agent->add_path(Path(
-			common_region.at((i - 1) % common_region.size()).x,
-			common_region.at((i - 1) % common_region.size()).y,
-			common_region.at(i).x,
-			common_region.at(i).y, Color(1.0, 0.0, 0.0)));
-	}
-	render_agent->invalidate();
-	std::cin.ignore();
-
 	// sort these shortlisted points
+	// identifying support point
 	int index = 0;
-	float val = -100000000000.0;
-	for (int i = 0; i < common_region.size(); i++) { // right-most point along x-axis
+	float val = common_region.at(0).x;
+	for (int i = 1; i < common_region.size(); i++) { // right-most point along x-axis
 		if (common_region.at(i).x > val) {
 			val = common_region.at(i).x;
 			index = i;
@@ -714,63 +796,42 @@ float quad::common_area_v2(quad* quad, local_visualizer* render_agent) {
 	sorted_list.push_back(common_region.at(index));
 	common_region.erase(common_region.begin() + index);
 
-	render_agent->add_path(Path(0.0, 0.0,
-		sorted_list.at(sorted_list.size() - 1).x,
-		sorted_list.at(sorted_list.size() - 1).y, Color(1.0, 1.0, 0.0)));
-	render_agent->invalidate();
-	std::cin.ignore();
-
+	// identifying support vector (2nd point)
 	index = 0;
-	val = 100000000000.0;
-	for (int i = 0; i < common_region.size(); i++) {
+	val = (common_region[0].y - sorted_list[0].y) / (common_region[0].x - sorted_list[0].x);
+	for (int i = 1; i < common_region.size(); i++) {
 		float slope = (common_region[i].y - sorted_list[0].y) / (common_region[i].x - sorted_list[0].x);
 		if (slope < val) {
 			val = slope;
 			index = i;
 		}
 	}
-	std::cout << "common_region.at(index) : " << common_region.at(index).x << " " << common_region.at(index).y << "\n";
 	sorted_list.push_back(common_region.at(index));
 	common_region.erase(common_region.begin() + index);
-	render_agent->add_path(Path(0.0, 0.0,
-		sorted_list.at(sorted_list.size() - 1).x,
-		sorted_list.at(sorted_list.size() - 1).y, Color(1.0, 1.0, 0.0)));
-	render_agent->invalidate();
-	std::cin.ignore();
 
+	// sorting remaining points
 	for (int i = 0; i < common_region.size(); i++) {
 		int pos = sorted_list.size() - 1;
 		vector_segment edge = vector_segment(sorted_list.at(pos - 1).x, sorted_list.at(pos - 1).y,
 			sorted_list.at(pos).x, sorted_list.at(pos).y);
 		val = edge.subtended_angle_measure(common_region.at(0).x, common_region.at(0).y);
 		index = 0;
-		std::cout << "val : " << val << std::endl;
-
+		
 		for (int j = 1; j < common_region.size(); j++) {
 			float val_j = edge.subtended_angle_measure(common_region.at(j).x, common_region.at(j).y);
-			std::cout << "val_" << j << " : " << val_j << std::endl;
 			if (val_j > val) {
 				val = val_j;
 				index = j;
 			}
 		}
-		std::cout << "pushed index " << index << " for val = " << val << std::endl;
 		sorted_list.push_back(common_region.at(index));
 		common_region.erase(common_region.begin() + index);
 		i--;
-
-		render_agent->add_path(Path(0.0, 0.0,
-			sorted_list.at(sorted_list.size() - 1).x,
-			sorted_list.at(sorted_list.size() - 1).y, Color(1.0, 1.0, 0.0)));
-		render_agent->invalidate();
-		std::cin.ignore();
 	}
-
-	render_agent->clear_paths(sorted_list.size() * 2);
 
 	//compute area
 	for (int i = 2; i < sorted_list.size(); i++) {
-		area -= CompGeomFuncEllipseApprox::triangle_area(
+		area += CompGeomFuncEllipseApprox::triangle_area(
 			sorted_list.at(0).x,
 			sorted_list.at(0).y,
 			sorted_list.at(i - 1).x,
@@ -779,12 +840,75 @@ float quad::common_area_v2(quad* quad, local_visualizer* render_agent) {
 			sorted_list.at(i).y
 		);
 	}
-	if (area < 0.001)
+
+	if (area < FLOATING_PRECISION)
 		area = 0.0;
 
-	std::cout << "[AREA] : " << area << std::endl;
-	render_agent->visualize_quads_intersection(this, quad, sorted_list);
-	//std::cin.ignore();
+	//render_agent->visualize_quads_intersection(this, quad, &sorted_list);
+
+	// length measure for common poly
+	float center_x = (free1.x1 + free2.x1 + other->free1.x1 + other->free2.x1) / 4;
+	float center_y = (free1.y1 + free2.y1 + other->free1.y1 + other->free2.y1) / 4;
+	float length = CompGeomFuncEllipseApprox::distance(center_x, center_y, sorted_list[0].x, sorted_list[0].y);
+	for (int i = 1; i < sorted_list.size(); i++) {
+		float len_i = CompGeomFuncEllipseApprox::distance(center_x, center_y, 
+			sorted_list[i].x, sorted_list[i].y);
+		if (len_i > length)
+			length = len_i;
+	}
+
+	// common ellipses' blocking effect
+	//float del_area1 = 0.0, del_area2 = 0.0, del_len1 = 0.0, del_len2 = 0.0;
+	//estimate_ellipse_blockage(common_ellipse, blocked1, &del_area1, &del_len1);
+	//estimate_ellipse_blockage(common_ellipse, quad->blocked1, &del_area2, &del_len2);
+
+	if (this->me_A == common_ellipse) {
+		this->neighbours_A.push_back(sibling(other, area, length));
+	}
+	if (this->me_B == common_ellipse) {
+		this->neighbours_B.push_back(sibling(other, area, length));
+	}
+
+	if (other->me_A == common_ellipse) {
+		other->neighbours_A.push_back(sibling(this, area, length));
+	}
+	if (other->me_B == common_ellipse) {
+		other->neighbours_B.push_back(sibling(this, area, length));
+	}
+
+	/*/if (this->me_A == common_ellipse) {
+		int index = this->neighbours_A.size() - 1;
+		quad* quad_copy = this->neighbours_A.at(index).path;
+		if ((quad_copy->me_A == this->me_A)	|| (quad_copy->me_B == this->me_A))
+			std::cout << "ok\n";
+		else
+			std::cout << "error\n";
+	}
+	if (this->me_B == common_ellipse) {
+		int index = this->neighbours_B.size() - 1;
+		quad* quad_copy = this->neighbours_B.at(index).path;
+		if ((quad_copy->me_A == this->me_B)	|| (quad_copy->me_B == this->me_B))
+			std::cout << "ok\n";
+		else
+			std::cout << "error\n";
+	}
+
+	if (other->me_A == common_ellipse) {
+		int index = other->neighbours_A.size() - 1;
+		quad* quad_copy = other->neighbours_A.at(index).path;
+		if ((quad_copy->me_A == other->me_A) || (quad_copy->me_B == other->me_A))
+			std::cout << "ok\n";
+		else
+			std::cout << "error\n";
+	}
+	if (other->me_B == common_ellipse) {
+		int index = other->neighbours_B.size() - 1;
+		quad* quad_copy = other->neighbours_B.at(index).path;
+		if ((quad_copy->me_A == other->me_B) || (quad_copy->me_B == other->me_B))
+			std::cout << "ok\n";
+		else
+			std::cout << "error\n";
+	}*/
 
 	return area;
 }
@@ -860,6 +984,32 @@ float quad::poly_bounds(quad* quad, local_visualizer* render_agent) {
 	}
 
 	return area;
+}
+
+float quad::importance_function1(void) {
+	float importance;
+	importance = mfa;
+	return mfa;
+}
+
+float quad::distance(float x, float y) {
+	float dist =0.0, temp=0.0;
+
+	dist = CompGeomFuncEllipseApprox::distance(free1.x1, free1.y1, x, y);
+
+	temp = CompGeomFuncEllipseApprox::distance(free2.x1, free2.y1, x, y);
+	if (temp < dist)
+		dist = temp;
+
+	temp = CompGeomFuncEllipseApprox::distance(free1.x2, free1.y2, x, y);
+	if (temp < dist)
+		dist = temp;
+
+	temp = CompGeomFuncEllipseApprox::distance(free2.x2, free2.y2, x, y);
+	if (temp < dist)
+		dist = temp;
+
+	return dist;
 }
 
 void ellipse::neighbourSweep::update_tangents_info(vector_segment internal_tangent1, vector_segment internal_tangent2,
@@ -1418,6 +1568,87 @@ void ellipse::approximate_tangent(ellipse* neighbour, local_visualizer* render_a
 	render_agent->visualize_tangent_approximations(this, neighbour);
 }
 
+void ellipse::visibility_handler_reloaded(local_visualizer* render_agent) {
+
+	for (int i = 0; i < neighbours.size(); i++) {
+
+		ellipse::neighbourSweep* petal1 = &neighbours.at(i);
+
+		for (int j = 0; j < neighbours.size(); j++) {
+
+			if (i == j)
+				continue;
+			ellipse::neighbourSweep* petal2 = &neighbours.at(j);
+
+			if (petal2->visibility_limit_left.isIntersecting(&petal1->visibility_range)
+				&& petal2->visibility_limit_right.isIntersecting(&petal1->visibility_range)) { // ith edge is completely blocked by this edge
+				// mark ith neighbour invisible in the list
+				neighbours.erase(neighbours.begin() + j);
+				j--;
+				continue;
+			}
+
+			modify_visibility_zones_reloaded(petal2, petal1, false, render_agent);
+			modify_visibility_zones_reloaded(petal2, petal1, true, render_agent);
+		}
+	}
+	//render_agent->visualize_petals(this);
+}
+
+bool ellipse::modify_visibility_zones_reloaded(ellipse::neighbourSweep* to_be_blocked,
+	ellipse::neighbourSweep* blocker, bool right, local_visualizer* render_agent) {
+	vector_segment* tangent_member_to_be_blocked, * tangent_member_blocker, * new_limit, * the_other_tangent;
+	if (right) {
+		// requested operation for right tangents
+		tangent_member_to_be_blocked = &to_be_blocked->visibility_limit_right;
+		tangent_member_blocker = &blocker->visibility_limit_left;
+		the_other_tangent = &to_be_blocked->visibility_limit_left;
+	}
+	else {
+		// requested operation for left tangents
+		tangent_member_to_be_blocked = &to_be_blocked->visibility_limit_left;
+		tangent_member_blocker = &blocker->visibility_limit_right;
+		the_other_tangent = &to_be_blocked->visibility_limit_right;
+	}
+	new_limit = nullptr;
+	for (int i = 0; i < neighbours.size(); i++) {
+		if (neighbours.at(i).pointer == blocker->pointer) {
+			if (right) {
+				new_limit = &neighbours.at(i).internal_tangent1;
+				break;
+			}
+			else {
+				new_limit = &neighbours.at(i).internal_tangent2;
+				break;
+			}
+		}
+	}
+
+	if (new_limit->isStrictlyVectorExtendedIntersecting(&to_be_blocked->visibility_range)) {
+		// blocker's extended tangent will intersect blockee's range; case of truncation
+		Point intersection = to_be_blocked->visibility_range.intersection_points(new_limit);
+		*tangent_member_to_be_blocked = *tangent_member_blocker;
+		tangent_member_to_be_blocked->x1 = new_limit->x1;
+		tangent_member_to_be_blocked->y1 = new_limit->y1;
+		tangent_member_to_be_blocked->x2 = intersection.x;
+		tangent_member_to_be_blocked->y2 = intersection.y;
+		to_be_blocked->evaluate_visibility_range();
+		if (to_be_blocked->visibility_range.length() < 0.0)
+			to_be_blocked->visible = false;
+		return true;
+	}
+
+	/*/if (new_limit->isStrictlyVectorExtendedIntersecting(the_other_tangent)) {
+		std::cout << "USING VETO :P\n";
+		std::cout << "You should keep a check on veto...\n";
+		std::cout << "new_limit : (" << new_limit->x1 << ", " << new_limit->y1 << ") ; (" << new_limit->x2 << ", " << new_limit->y2 << ") " << std::endl;
+		std::cout << "the_other_tangent : (" << the_other_tangent->x1 << ", " << the_other_tangent->y1 << ") ; (" << the_other_tangent->x2 << ", " << the_other_tangent->y2 << ") " << std::endl;
+		to_be_blocked->visible = false;
+	}*/
+
+	return false;
+}
+
 void ellipse::tangents_handler(ellipse* neighbour, local_visualizer* render_agent) {
 	/*
 	* passed ellipse is already a neighbour of this ellipse
@@ -1650,7 +1881,7 @@ void local_visualizer::visualize_quads_intersection(quad* quad1, quad* quad2) {
 	}
 }
 
-void local_visualizer::visualize_quads_intersection(quad* quad1, quad* quad2, std::vector<Point> poly) {
+void local_visualizer::visualize_quads_intersection(quad* quad1, quad* quad2, std::vector<Point>* poly) {
 	if (true) {
 		int path_count = 0;
 		add_path(quad1->blocked1, Color(0.0, 0.0, 0.0));
@@ -1665,15 +1896,52 @@ void local_visualizer::visualize_quads_intersection(quad* quad1, quad* quad2, st
 		add_path(quad2->free2, Color(0.0, 0.0, 0.0));
 		path_count += 4;
 
-		for (int i = 1; i < poly.size(); i++) {
-			add_path(Path(poly[i - 1].x, poly[i - 1].y, poly[i].x, poly[i].y, Color(1.0, 1.0, 1.0)));
+		for (int i = 0; i < poly->size(); i++) {
+			add_path(Path(poly->at((i + 1) % poly->size()).x, poly->at((i + 1) % poly->size()).y,
+				poly->at(i % poly->size()).x, poly->at(i % poly->size()).y, Color(1.0, 1.0, 1.0)));
 			path_count++;
 		}
 
 		invalidate();
 
+		//std::cin.ignore();
+		clear_paths(path_count);
+	}
+}
+
+void local_visualizer::visualize_petals(ellipse* obstacle) {
+	if (true) {
+		int path_count = 0;
+		
+		for (int i = 0; i < obstacle->neighbours.size(); i++) {
+			add_path(obstacle->neighbours.at(i).visibility_limit_left, Color(1.0, 1.0, 0.0));
+			add_path(obstacle->neighbours.at(i).visibility_limit_right, Color(1.0, 1.0, 0.0));
+			add_path(obstacle->neighbours.at(i).visibility_range, Color(1.0, 1.0, 0.0));
+			path_count += 3;
+		}
+		invalidate();
+
 		std::cin.ignore();
 		clear_paths(path_count);
+		invalidate();
+	}
+}
+
+void local_visualizer::visualize_path(std::vector<quad*>* path) {
+	if (true) {
+		int path_count = 0;
+		for (int i = 0; i < path->size(); i++) {
+			add_path(path->at(i)->free1, Color(0.0, 0.0, 0.0));
+			add_path(path->at(i)->free2, Color(0.0, 0.0, 0.0));
+			add_path(path->at(i)->blocked1, Color(0.0, 0.0, 0.0));
+			add_path(path->at(i)->blocked2, Color(0.0, 0.0, 0.0));
+			path_count += 4;
+		}
+		invalidate();
+
+		std::cin.ignore();
+		clear_paths(path_count);
+		invalidate();
 	}
 }
 
@@ -1882,8 +2150,7 @@ void elliptical_approx::init(std::vector<Node>* node_list, int width, int height
 	this->GRID_WIDTH = width;
 	this->GRID_HEIGHT = height;
 	this->render_agent = local_visualizer(GRID_WIDTH, GRID_HEIGHT, renderer, paths, func_updater);
-	convex_clustering clusterer = convex_clustering(&render_agent);
-	this->cluster = &clusterer;
+	this->cluster = convex_clustering(&render_agent);
 
 	contour_extractor2();
 	//locate_obstacles();
@@ -1891,11 +2158,39 @@ void elliptical_approx::init(std::vector<Node>* node_list, int width, int height
 	//ellipse ellipse1 = ellipse(77.04f, 25.04f, 15.09f, 21.54f, 46.69 * PI / 180);
 	//cluster->clustering_2(node_list, GRID_WIDTH);
 	for (int i = 0; i < points.size(); i++) {
-		cluster->clustering_3(node_list, GRID_WIDTH, points.at(i));
+		cluster.clustering_3(node_list, GRID_WIDTH, points.at(i));
 	}
 
-	quad_builder builder = quad_builder(cluster->ellipse_list, &render_agent);
-	map_builder = &builder;
+	map_builder = quad_builder(cluster.ellipse_list, &render_agent);
+}
+
+void elliptical_approx::finder(int start_cell_index, int goal_cell_index) {
+	this->start_cell_index = start_cell_index;
+	this->goal_cell_index = goal_cell_index;
+
+	int start_x = this->start_cell_index % GRID_WIDTH;
+	int start_y = this->start_cell_index / GRID_WIDTH;
+	int goal_x = this->goal_cell_index % GRID_WIDTH;
+	int goal_y = this->goal_cell_index / GRID_WIDTH;
+
+	std::vector<quad*> feasible_path;
+	std::vector<quad>* quads = &(map_builder.quad_list);
+
+	quad* start_node = nearest_quad(start_x, start_y);
+	quad* goal_node = nearest_quad(goal_x, goal_y);
+	std::cout << "start_node : " << start_node->id << " goal_node : " << goal_node->id << "\n";
+
+
+	search_path(start_node, goal_node, start_node->me_A, &feasible_path);
+	if (feasible_path.at(feasible_path.size()-1)!=goal_node)
+		search_path(start_node, goal_node, start_node->me_B, &feasible_path);
+
+
+	for (int i = 0; i < feasible_path.size(); i++) {
+		std::cout << "node[" << i << "] : id " << feasible_path.at(i)->id << std::endl;
+	}
+
+	render_agent.visualize_path(&feasible_path);
 }
 
 void elliptical_approx::call_next_counter_clockwise(Node* boundary_cell, int dir, Node* stopping_node, bool forward) {
@@ -2261,6 +2556,85 @@ Point elliptical_approx::ellipseParametric(double x0, double y0, double a, doubl
 	pt.x = x0 + (a * cos(t * PI / 180) * cos(alpha * PI / 180) - b * sin(t * PI / 180) * sin(alpha * PI / 180));
 	pt.y = y0 + (a * cos(t * PI / 180) * sin(alpha * PI / 180) + b * sin(t * PI / 180) * cos(alpha * PI / 180));
 	return pt;
+}
+
+quad* elliptical_approx::nearest_quad(float x, float y) {
+	float distance = map_builder.quad_list.at(0).distance(x, y);
+	int index = 0;
+
+	for (int i = 1; i < map_builder.quad_list.size(); i++) {
+		float temp = map_builder.quad_list.at(i).distance(x, y);
+		if (temp < distance) {
+			distance = temp;
+			index = i;
+		}
+	}
+	return &(map_builder.quad_list.at(index));
+}
+
+bool elliptical_approx::search_path(quad* start, quad* goal, ellipse* pivot, std::vector<quad*>* path) {
+		// mark this nodes signature on path
+	path->push_back(start); 
+	
+	// if goal reached
+	if (path->at(path->size() - 1) == goal)
+		return true; // force terminate all recursive functions
+
+	if (pivot == start->me_A) {
+		for (int i = 0; i < start->neighbours_A.size(); i++) {
+			quad* node_i = start->neighbours_A.at(start->order_A.at(i)).path;
+			// check if a quad is already in the path list
+			bool already_taken = false;
+			for (int j = 0; j < path->size(); j++) {
+				if (node_i == path->at(j)) {
+					already_taken = true;
+					break;
+				}
+			}
+			if (already_taken)
+				continue;
+
+			// otherwise keep exploring in serial order until goal is reached
+			if (node_i->me_A == pivot) {
+				if (search_path(node_i, goal, node_i->me_B, path))
+					return true;
+			}
+			if (node_i->me_B == pivot) {
+				if (search_path(node_i, goal, node_i->me_A, path))
+					return true;
+			}
+		}
+	}
+
+	if (pivot == start->me_B) {
+		for (int i = 0; i < start->neighbours_B.size(); i++) {
+			quad* node_i = start->neighbours_B.at(start->order_B.at(i)).path;
+			// check if a quad is already in the path list
+			bool already_taken = false;
+			for (int j = 0; j < path->size(); j++) {
+				if (node_i == path->at(j)) {
+					already_taken = true;
+					break;
+				}
+			}
+			if (already_taken)
+				continue;
+
+			// otherwise keep exploring in serial order until goal is reached
+			if (node_i->me_A == pivot) {
+				if (search_path(node_i, goal, node_i->me_B, path))
+					return true;
+			}
+			if (node_i->me_B == pivot) {
+				if (search_path(node_i, goal, node_i->me_A, path))
+					return true;
+			}
+		}
+	}
+
+	// not a part of this journey. removing this node from path
+	path->pop_back();
+	return false;
 }
 
 bool convex_clustering::leftOnly(float line_x1, float line_y1,
@@ -2889,41 +3263,138 @@ quad_builder::quad_builder(std::vector<ellipse> list, local_visualizer* render_a
 
 	// Step II : quad pair computation
 	for (int i = 0; i < obstacles.size(); i++) {
+		obstacles.at(i).visibility_handler_reloaded(render_agent);
 		int starting_index = 0;
 		for (int j = 0; j < obstacles.at(i).neighbours.size(); j++) {
-			/*for (int k = 0; k < quad_list.size(); k++) {
-				if ((quad_list.at(k).me_A == &obstacles.at(i)) || (quad_list.at(k).me_B == &obstacles.at(i))) {
-					continue;
-				}
-			}*/
+
 			if (j == 0)
 				starting_index = quad_list.size();
 			ellipse::neighbourSweep sweep = obstacles.at(i).neighbours.at(j);
+
+			// check if this quad is already registered in list
+			bool flag_available = false;
+			for (int k = 0; k < quad_list.size(); k++) {
+				if (quad_list.at(k).me_A == &obstacles.at(i)) {
+					if (quad_list.at(k).me_B == sweep.pointer) {
+						flag_available = true;
+						break;
+					}
+				}
+				if (quad_list.at(k).me_B == &obstacles.at(i)) {
+					if (quad_list.at(k).me_A == sweep.pointer) {
+						flag_available = true;
+						break;
+					}
+				}
+			}
+			if (flag_available)
+				continue;
+
 			quad_list.push_back(quad(
 				&obstacles.at(i),
-				obstacles.at(i).neighbours.at(j).pointer,
-				sweep.external_tangent1, 
-				sweep.external_tangent2, 
+				sweep.pointer,
+				//sweep.external_tangent1,
+				//sweep.external_tangent2,
+				sweep.visibility_limit_left,
+				sweep.visibility_limit_right,
 				quad_list.size()));
 			//render_agent->visualize_quads(&quad_list.at(quad_list.size()-1), true, true);
 		}
-
-		for (int j = starting_index; j < quad_list.size(); j++) {
-			for (int k = starting_index; k < quad_list.size(); k++) {
-				if (j == k)
-					continue;
-				std::cout << "j = " << j << ". k = " << k << "\n";
-				//quad_list.at(j).common_area(&quad_list.at(k), render_agent);
-				quad_list.at(j).common_area_v2(&quad_list.at(k), render_agent);
-				//quad_list[3].common_area_v2(&quad_list[5], render_agent);
-			}
-		}
-		//quad_list[0].common_area(&quad_list[2], render_agent);
-		//quad_list[0].common_area_v2(&quad_list[2], render_agent);
 	}
 
 	// Step III : create quad map
-	//stich_quads();
+	// stitch quads into map
+	for (int i = 0; i < obstacles.size(); i++) {
+		for (int j = 0; j < quad_list.size(); j++) {
+			bool flag_A_j = (quad_list.at(j).me_A == &obstacles.at(i));
+			bool flag_B_j = (quad_list.at(j).me_B == &obstacles.at(i));
+
+			if (!flag_A_j && !flag_B_j)
+				continue;
+			for (int k = j+1; k < quad_list.size(); k++) {
+				bool flag_A_k = (quad_list.at(k).me_A == &obstacles.at(i));
+				bool flag_B_k = (quad_list.at(k).me_B == &obstacles.at(i));
+
+				if (!flag_A_k && !flag_B_k)
+					continue;
+				/* by this point we have got every pair of quads which share a
+					common ellipse obstacle[i] */
+				quad_list.at(j).common_area_v2(&quad_list.at(k), &obstacles.at(i), render_agent);
+			}
+		}
+	}
+
+	// Step III : create quad map
+	// sorting quadlist;
+
+
+	std::vector<int> indices;
+	for (int i = 0; i < quad_list.size(); i++) {
+		indices.push_back(i);
+	}
+	while (!indices.empty()) {
+		float importance = quad_list.at(indices.at(0)).importance_function1();
+		int index = 0;
+		//std::cout << "index : " << index << " importance : " << importance << "\n";
+		for (int i = 1; i < indices.size(); i++) {
+			float temp = quad_list.at(indices.at(i)).importance_function1();
+			//std::cout << "index : " << j << " importance : " << temp << "\n";
+			if (temp > importance) {
+				importance = temp;
+				index = i;
+			}
+		}
+		//std::cin.ignore();
+		order.push_back(indices.at(index));
+		indices.erase(indices.begin() + index);
+	}
+	indices.clear();
+
+	for (int i = 0; i < quad_list.size(); i++) {
+		quad* path = &quad_list.at(i);
+
+		// sorting each of the neighbours' list -- series A;
+		indices.clear();
+		for (int j = 0; j < path->neighbours_A.size(); j++) {
+			indices.push_back(j);
+		}
+		while (!indices.empty()) {
+			float importance = path->neighbours_A.at(indices.at(0)).importance_function1();
+			int index = 0;
+
+			for (int j = 1; j < indices.size(); j++) {
+				float temp = path->neighbours_A.at(indices.at(j)).importance_function1();
+				if (temp > importance) {
+					importance = temp;
+					index = j;
+				}
+			}
+			path->order_A.push_back(indices.at(index));
+			indices.erase(indices.begin() + index);
+		}
+		indices.clear();
+
+		// sorting each of the neighbours' list -- series B;
+		indices.clear();
+		for (int j = 0; j < path->neighbours_B.size(); j++) {
+			indices.push_back(j);
+		}
+		while (!indices.empty()) {
+			float importance = path->neighbours_B.at(indices.at(0)).importance_function1();
+			int index = 0;
+
+			for (int j = 1; j < indices.size(); j++) {
+				float temp = path->neighbours_B.at(indices.at(j)).importance_function1();
+				if (temp > importance) {
+					importance = temp;
+					index = j;
+				}
+			}
+			path->order_B.push_back(indices.at(index));
+			indices.erase(indices.begin() + index);
+		}
+		indices.clear();
+	}
 }
 
 void quad_builder::stich_quads(void) {

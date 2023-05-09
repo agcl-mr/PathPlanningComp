@@ -26,7 +26,7 @@ genetic_algo genetic;
 voronoi_algo voronoi;
 elliptical_approx approximater;
 
-int algorithm_mode = VORONOI;
+int algorithm_mode = ELLIPTICAL_APPROX;
 
 //constants
 float current_color[] = { 0.7f, 0.15f, 0.5f };
@@ -98,6 +98,11 @@ void find_path() {
 	if (algorithm_mode == VORONOI) {
 		voronoi.finder(start_cell_index, goal_cell_index);
 		//voronoi.visualize_obstacles(&paths, array_updater);
+	}
+
+	// ------- Elliptical Approx
+	if (algorithm_mode == ELLIPTICAL_APPROX) {
+		approximater.finder(start_cell_index, goal_cell_index);
 	}
 }
 
@@ -433,7 +438,7 @@ int main() {
 	renderer.render();
 	nodes = *map_obj_1.getGraph(&grid_height, &grid_width, &half_node_size);
 
-	if (false) {//bypassing all the algo
+	if (true) {//bypassing all the algo
 		//insert_nodes_grid();
 		//start_cell_index = 30300;
 		start_cell_index = 15;
@@ -446,10 +451,11 @@ int main() {
 
 		if (algorithm_mode == VORONOI)
 			voronoi.init(&nodes, grid_width, grid_height, &renderer, &paths, array_updater);
+		if (algorithm_mode == ELLIPTICAL_APPROX) {
+			approximater.init(&nodes, grid_width, grid_height, &renderer, &paths, array_updater);
+		}
 		find_path();
 	}
-
-	approximater.init(&nodes, grid_width, grid_height, &renderer, &paths, array_updater);
 
 	renderer.vertices.clear();
 	renderer.indices.clear();
@@ -460,6 +466,11 @@ int main() {
 	}
 
 	if (algorithm_mode == VORONOI) {
+		add_nodes_to_render_queue(nodes);
+		add_paths_to_render_queue(paths);
+	}
+
+	if (algorithm_mode == ELLIPTICAL_APPROX) {
 		add_nodes_to_render_queue(nodes);
 		add_paths_to_render_queue(paths);
 	}

@@ -10,6 +10,7 @@
 #define A_STAR 101
 #define GENETIC 102
 #define VORONOI 103
+#define ELLIPTICAL_APPROX 104
 
 #define PI 2 * acos(0.0)
 

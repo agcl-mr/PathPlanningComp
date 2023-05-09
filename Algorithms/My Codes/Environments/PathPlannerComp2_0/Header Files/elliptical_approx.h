@@ -7,6 +7,7 @@
 
 
 #include <vector>
+#include <algorithm>
 #include <iostream>
 #include <dlib/optimization.h>
 #include <Eigen/Dense>
@@ -98,6 +99,8 @@ public:
 
 	float dot_product(vector_segment* edge);
 
+	float normalized_dot_product(vector_segment* edge);
+
 	float perpendicular_distance(float x, float y);
 
 	void intersection_points(ellipse* ellipse, vector_segment* result);
@@ -109,11 +112,25 @@ class local_visualizer;
 
 class quad {
 public:
+	class sibling {
+	public:
+		quad* path;
+		float area_measure; // common area between two pair of quads
+		float length_measure; // extent till which common boundaries run wrt. common ellipse center
+		// -- max distance of a point on common poly to ellipse center
+
+		sibling(quad* neighbour, float area_measure, float length_measure);
+
+		float importance_function1(void);
+	};
+		
 	vector_segment free1, free2, blocked1, blocked2; // all these wrt. A
 	ellipse* me_A, * me_B;
-	std::vector<quad*> neighbours;
+	std::vector<sibling> neighbours_A, neighbours_B;
+	std::vector<int> order_A, order_B;
 	int id = 0;
-	float area = 0.0;
+	float mfa = 0.0, mpl = 0.0, mpw = 0.0;
+	//mfa : mean free area, mpl : mean path length, mpw : mean path width
 
 	quad(ellipse* me_A, ellipse* me_B, vector_segment external_tangent_1, vector_segment external_tangent_2, int id) {
 		this->me_A = me_A;
@@ -125,24 +142,31 @@ public:
 		blocked2 = vector_segment(external_tangent_1.x2, external_tangent_1.y2,
 			external_tangent_2.x2, external_tangent_2.y2);
 		this->id = id;
-		this->area = compute_area();
+		compute_params();
 	}
 
 	bool isIntersecting(quad* quad, local_visualizer* render_agent);
 
 	void map_expander(quad* quad, std::vector<bool>* checklist, local_visualizer* render_agent);
 
-	float compute_area(void);
+	void estimate_ellipse_blockage(ellipse* ellip, vector_segment chord, float* area_reduction,
+		float* length_reduction);
+
+	void compute_params(void);
 
 	float common_area(quad* quad, local_visualizer* render_agent);
 
-	float common_area_v2(quad* quad, local_visualizer* render_agent);
+	float common_area_v2(quad* other, ellipse* common_ellipse, local_visualizer* render_agent);
 
 	float poly_bounds(quad* quad, local_visualizer* render_agent);
 
 	bool clockwise_intersection_locator(std::vector<Point>* set_2,
 		vector_segment* edge1, int index_start_2, int* index_set2, Point* intersection_pt,
 		bool propogation);
+
+	float importance_function1(void);
+
+	float distance(float x, float y);
 };
 
 static class CompGeomFuncEllipseApprox {
@@ -260,6 +284,11 @@ public:
 
 	void tangents_handler(ellipse* neighbour, local_visualizer* render_agent);
 
+	void visibility_handler_reloaded(local_visualizer* render_agent);
+
+	bool modify_visibility_zones_reloaded(ellipse::neighbourSweep* to_be_blocked,
+		ellipse::neighbourSweep* blocker, bool right, local_visualizer* render_agent);
+
 private:
 };
 
@@ -306,7 +335,11 @@ public:
 
 	void visualize_quads_intersection(quad* quad1, quad* quad2);
 
-	void visualize_quads_intersection(quad* quad1, quad* quad2, std::vector<Point> poly);
+	void visualize_quads_intersection(quad* quad1, quad* quad2, std::vector<Point>* poly);
+
+	void visualize_petals(ellipse* obstacle);
+
+	void visualize_path(std::vector<quad*>* path);
 
 	void show_edges(std::vector<Line>* edge_list);
 
@@ -379,6 +412,8 @@ public:
 		this->render_agent = render_agent;
 		data_size = 107;
 	}
+
+	convex_clustering(){}
 private:
 	local_visualizer* render_agent;
 	int data_size = 0;
@@ -388,7 +423,20 @@ private:
 	std::vector<std::vector<int_point>> clustered_points;
 };
 
-class quad_builder;
+class quad_builder {
+public:
+	std::vector<quad> quad_list;
+	std::vector<int> order;
+	quad_builder(std::vector<ellipse> list, local_visualizer* render_agent);
+	quad_builder() {}
+
+private:
+	std::vector<ellipse> obstacles;
+	local_visualizer* render_agent;
+	quad* quad_map;
+
+	void stich_quads(void);
+};
 
 class elliptical_approx {
 public:
@@ -402,6 +450,8 @@ public:
 		void (*func_updater)(std::vector<float>*)
 	);
 
+	void finder(int start_cell_index, int goal_cell_index);
+
 	double rateCurveElliptical(const column_vector& params);
 
 	elliptical_approx() {}
@@ -412,8 +462,10 @@ private:
 	std::vector<polygon2D> obstacles;
 	local_visualizer render_agent;
 	std::vector<std::vector<int_point>> points;;
-	convex_clustering* cluster;
-	quad_builder* map_builder;
+	convex_clustering cluster;
+	quad_builder map_builder;
+
+	int start_cell_index, goal_cell_index;
 
 	class coord {
 	public:
@@ -444,19 +496,10 @@ private:
 
 	Point ellipseParametric(double x0, double y0, double a, double b, double alpha, double t);
 
-};
+	quad* nearest_quad(float x, float y);
 
-class quad_builder {
-public:
-	quad_builder(std::vector<ellipse> list, local_visualizer* render_agent);
+	bool search_path(quad* start, quad* goal, ellipse* pivot, std::vector<quad*>* path);
 
-private:
-	std::vector<ellipse> obstacles;
-	std::vector<quad> quad_list;
-	local_visualizer* render_agent;
-	quad* quad_map;
-
-	void stich_quads(void);
 };
 
 #endif
