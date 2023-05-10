@@ -63,6 +63,7 @@ void update_starting_cell(int updated_index) {
 	nodes.at(start_cell_index).type = START;
 	nodes.at(start_cell_index).empty = true;
 	algo_graph = &(nodes.at(start_cell_index));
+	std::cout << "starting cell updated to  : " << updated_index << " \n";
 }
 
 void update_target_cell(int updated_index) {
@@ -71,6 +72,7 @@ void update_target_cell(int updated_index) {
 	goal_cell_index = updated_index;
 	nodes.at(goal_cell_index).type = GOAL;
 	nodes.at(goal_cell_index).empty = true;
+	std::cout << "target cell updated to  : " << updated_index << " \n";
 }
 
 void array_updater(std::vector<float>* vertices);
@@ -154,8 +156,16 @@ void sample_graph_manipulations() {
 }
 
 void gl_to_image_coords(float* x, float* y) {
-	*x = (*x - 400) / 400;
-	*y = -(*y - 400) / 400;
+	float x_GL = *x;
+	float y_GL = *y;
+	float x_off = (float)grid_width / 2;
+	float y_off = (float)grid_height / 2;
+	int scale = ((grid_width) > (grid_height) ? (grid_width) : (grid_height)) / 2;
+
+	float x_img = x_GL * scale + x_off;
+	float y_img = -y_GL * scale + y_off;
+	*x = x_img;
+	*y = y_img;
 }
 
 void image_coords_to_GL(float* x, float* y) {
@@ -373,47 +383,48 @@ void voronoi_utility(float x, float y) {
 }
 
 void mouse_triggers(float x, float y) {
-	voronoi_utility(x, y);
+	//voronoi_utility(x, y);
 	//node_clicked(x, y);
 }
 
 void keyboard_triggers(int key) {
+	int SENSITIVITY = 4;
 	if (key == GLFW_KEY_A) {
-		if (start_cell_index % grid_width - 1 >= 0) {
-			update_starting_cell(start_cell_index - 1);
+		if (start_cell_index % grid_width - SENSITIVITY >= 0) {
+			update_starting_cell(start_cell_index - SENSITIVITY);
 		}
 	}
 	if (key == GLFW_KEY_S) {
-		if (start_cell_index + grid_width < grid_width * grid_height) {
-			update_starting_cell(start_cell_index + grid_width);
+		if (start_cell_index + SENSITIVITY*grid_width < grid_width * grid_height) {
+			update_starting_cell(start_cell_index + SENSITIVITY*grid_width);
 		}
 	}
 	if (key == GLFW_KEY_D) {
-		if (start_cell_index % grid_width + 1 < grid_width) {
-			update_starting_cell(start_cell_index + 1);
+		if (start_cell_index % grid_width + SENSITIVITY < grid_width) {
+			update_starting_cell(start_cell_index + SENSITIVITY);
 		}
 	}
 	if (key == GLFW_KEY_W) {
-		if (start_cell_index - grid_width >= 0) {
-			update_starting_cell(start_cell_index - grid_width);
+		if (start_cell_index - SENSITIVITY*grid_width >= 0) {
+			update_starting_cell(start_cell_index - SENSITIVITY*grid_width);
 		}
 	}
 
 	if (key == GLFW_KEY_LEFT) {
-		if (goal_cell_index % grid_width - 1 >= 0)
-			update_target_cell(goal_cell_index - 1);
+		if (goal_cell_index % grid_width - SENSITIVITY >= 0)
+			update_target_cell(goal_cell_index - SENSITIVITY);
 	}
 	if (key == GLFW_KEY_RIGHT) {
-		if (goal_cell_index % grid_width + 1 < grid_width)
-			update_target_cell(goal_cell_index + 1);
+		if (goal_cell_index % grid_width + SENSITIVITY < grid_width)
+			update_target_cell(goal_cell_index + SENSITIVITY);
 	}
 	if (key == GLFW_KEY_UP) {
-		if (goal_cell_index - grid_width >= 0)
-			update_target_cell(goal_cell_index - grid_width);
+		if (goal_cell_index - SENSITIVITY*grid_width >= 0)
+			update_target_cell(goal_cell_index - SENSITIVITY*grid_width);
 	}
 	if (key == GLFW_KEY_DOWN) {
-		if (goal_cell_index + grid_width < grid_width * grid_height)
-			update_target_cell(goal_cell_index + grid_width);
+		if (goal_cell_index + SENSITIVITY*grid_width < grid_width * grid_height)
+			update_target_cell(goal_cell_index + SENSITIVITY*grid_width);
 	}
 
 
@@ -431,6 +442,11 @@ void keyboard_triggers(int key) {
 		add_nodes_to_render_queue(nodes);
 		add_paths_to_render_queue(paths);
 	}
+
+	if (algorithm_mode == ELLIPTICAL_APPROX) {
+		add_nodes_to_render_queue(nodes);
+		add_paths_to_render_queue(paths);
+	}
 }
 
 int main() {
@@ -441,11 +457,11 @@ int main() {
 	if (true) {//bypassing all the algo
 		//insert_nodes_grid();
 		//start_cell_index = 30300;
-		start_cell_index = 15;
+		start_cell_index = 1700;
 		nodes.at(start_cell_index).type = START;
 		nodes.at(start_cell_index).cost = 0;
 		algo_graph = &(nodes.at(start_cell_index));
-		goal_cell_index = 262;
+		goal_cell_index = 12880;
 		//goal_cell_index = 30302;
 		nodes.at(goal_cell_index).type = GOAL;
 

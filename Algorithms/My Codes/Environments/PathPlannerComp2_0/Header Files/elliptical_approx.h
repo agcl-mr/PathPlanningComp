@@ -118,8 +118,9 @@ public:
 		float area_measure; // common area between two pair of quads
 		float length_measure; // extent till which common boundaries run wrt. common ellipse center
 		// -- max distance of a point on common poly to ellipse center
+		float length_measure2; // length of common junction between 2 quads
 
-		sibling(quad* neighbour, float area_measure, float length_measure);
+		sibling(quad* neighbour, float area_measure, float length_measure, float length_measure2);
 
 		float importance_function1(void);
 	};
@@ -156,7 +157,7 @@ public:
 
 	float common_area(quad* quad, local_visualizer* render_agent);
 
-	float common_area_v2(quad* other, ellipse* common_ellipse, local_visualizer* render_agent);
+	void common_area_v2(quad* other, ellipse* common_ellipse, local_visualizer* render_agent);
 
 	float poly_bounds(quad* quad, local_visualizer* render_agent);
 
@@ -167,6 +168,8 @@ public:
 	float importance_function1(void);
 
 	float distance(float x, float y);
+
+	bool isInside(float x, float y);
 };
 
 static class CompGeomFuncEllipseApprox {
@@ -195,6 +198,7 @@ public:
 class ellipse {
 public:
 	int uniqueID = 0;
+	int origin_signature = 0;
 	class neighbourSweep;
 	std::vector<neighbourSweep> neighbours;
 
@@ -248,6 +252,8 @@ public:
 		void evaluate_visibility_range(void);
 
 		int compute_importance(void);
+
+		bool is_degenerate(void);
 	};
 
 	class boundingChords {
@@ -289,6 +295,8 @@ public:
 	bool modify_visibility_zones_reloaded(ellipse::neighbourSweep* to_be_blocked,
 		ellipse::neighbourSweep* blocker, bool right, local_visualizer* render_agent);
 
+	bool isIntersecting(ellipse* ellipse);
+
 private:
 };
 
@@ -321,6 +329,10 @@ public:
 
 	void draw_ears(int data_x[], int data_y[], std::vector<std::vector<int>>* poly_indice);
 
+	void draw_quad(quad* quad);
+
+	void draw_quad(quad* quad, Color color);
+
 	void visualize_ear_2(std::vector<int_point>* points, std::vector<int>* ear, bool clear_again);
 
 	void visualize_ear(int data_x[], int data_y[], std::vector<int>* ear, bool clear_again);
@@ -340,6 +352,10 @@ public:
 	void visualize_petals(ellipse* obstacle);
 
 	void visualize_path(std::vector<quad*>* path);
+
+	void visualize_path2(std::vector<quad*>* path, vector_segment start_goal);
+
+	void visualize_graph_exploration_options(quad* node);
 
 	void show_edges(std::vector<Line>* edge_list);
 
@@ -466,6 +482,7 @@ private:
 	quad_builder map_builder;
 
 	int start_cell_index, goal_cell_index;
+	int start_x, start_y, goal_x, goal_y;
 
 	class coord {
 	public:
@@ -498,8 +515,13 @@ private:
 
 	quad* nearest_quad(float x, float y);
 
+	float heuristic_function(quad::sibling* node, ellipse* pivot_point);
+
 	bool search_path(quad* start, quad* goal, ellipse* pivot, std::vector<quad*>* path);
 
+	void compute_search_order(std::vector<quad::sibling>* list, std::vector<int>* order, ellipse* common_ellip);
+
+	float scrape_common_area_measure(quad* quad1, quad* quad2);
 };
 
 #endif
