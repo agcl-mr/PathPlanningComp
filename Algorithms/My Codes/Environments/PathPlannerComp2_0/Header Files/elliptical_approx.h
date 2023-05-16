@@ -9,6 +9,7 @@
 #include <vector>
 #include <algorithm>
 #include <iostream>
+#include <chrono>
 #include <dlib/optimization.h>
 #include <Eigen/Dense>
 //#include <cmath>
@@ -119,8 +120,10 @@ public:
 		float length_measure; // extent till which common boundaries run wrt. common ellipse center
 		// -- max distance of a point on common poly to ellipse center
 		float length_measure2; // length of common junction between 2 quads
+		Point ellip_center, farthest_point;
 
-		sibling(quad* neighbour, float area_measure, float length_measure, float length_measure2);
+		sibling(quad* neighbour, float area_measure, float length_measure, 
+			float length_measure2, Point ellip_center, Point farthest_point);
 
 		float importance_function1(void);
 	};
@@ -242,8 +245,8 @@ public:
 			this->external_tangent2 = vector_segment();
 			this->external_range = vector_segment();
 			this->pointer = neighbour;
-			this->id = ("GC" + std::to_string(me_id)) + ("X" + std::to_string(neighbour->uniqueID));
-			std::cout << "NEW quad created : " << this->id << std::endl;
+			//this->id = ("GC" + std::to_string(me_id)) + ("X" + std::to_string(neighbour->uniqueID));
+			//std::cout << "NEW quad created : " << this->id << std::endl;
 		}
 
 		void update_tangents_info(vector_segment internal_tangent1, vector_segment internal_tangent2,
@@ -354,6 +357,8 @@ public:
 	void visualize_path(std::vector<quad*>* path);
 
 	void visualize_path2(std::vector<quad*>* path, vector_segment start_goal);
+
+	void visualize_path3(std::vector<Point> path);
 
 	void visualize_graph_exploration_options(quad* node);
 
@@ -466,7 +471,8 @@ public:
 		void (*func_updater)(std::vector<float>*)
 	);
 
-	void finder(int start_cell_index, int goal_cell_index);
+	void finder(int start_cell_index, int goal_cell_index, 
+		std::chrono::time_point<std::chrono::high_resolution_clock> start);
 
 	double rateCurveElliptical(const column_vector& params);
 
@@ -483,6 +489,9 @@ private:
 
 	int start_cell_index, goal_cell_index;
 	int start_x, start_y, goal_x, goal_y;
+	const int ROBOT_SIZE = 25;
+
+	std::vector<long long>run_time;
 
 	class coord {
 	public:
@@ -521,7 +530,7 @@ private:
 
 	void compute_search_order(std::vector<quad::sibling>* list, std::vector<int>* order, ellipse* common_ellip);
 
-	float scrape_common_area_measure(quad* quad1, quad* quad2);
+	bool scrape_common_area_measure(quad* quad1, quad* quad2, float* metrics);
 };
 
 #endif

@@ -25,15 +25,16 @@ Point CompGeomFuncEllipseApprox::intersection_point(vector_segment* slicee_edge,
 
 	Point result;
 	float denom1 = float((x2 - x1) * (b2 - b1) - (a2 - a1) * (y2 - y1));
-	if (denom1 == 0) {
-		std::cout << "[WARNING] : Parallel lines. Assuming near mid-point as intersection point\n";
+	if (std::abs(denom1) < FLOATING_PRECISION) {
+		if (show_logs)
+			std::cout << "[WARNING] : Parallel lines. Assuming near mid-point as intersection point\n";
 		result.x = (x1 + x2 + a1 + a2) / 4;
 		result.y = (y1 + y2 + b1 + b2) / 4;
 	}
 	else {
 		result.x = float((a2 - a1) * (y1 * x2 - y2 * x1) - (x2 - x1) * (b1 * a2 - b2 * a1))
 			/ denom1;
-
+		
 		if (x2 == x1)
 			result.y = float((b2 - b1) * (result.x) + (b1 * a2 - b2 * a1)) / float(a2 - a1);
 		else
@@ -273,12 +274,14 @@ Point vector_segment::intersection_points(vector_segment* edge) {
 	return CompGeomFuncEllipseApprox::intersection_point(this, edge);
 }
 
-
-quad::sibling::sibling(quad* neighbour, float area_measure, float length_measure, float length_measure2) {
+quad::sibling::sibling(quad* neighbour, float area_measure, float length_measure,
+	float length_measure2, Point ellip_center, Point farthest_point) {
 	this->path = neighbour;
 	this->area_measure = area_measure;
 	this->length_measure = length_measure;
 	this->length_measure2 = length_measure2;
+	this->ellip_center = ellip_center;
+	this->farthest_point = farthest_point;
 }
 
 float quad::sibling::importance_function1(void) {
@@ -288,64 +291,37 @@ float quad::sibling::importance_function1(void) {
 }
 
 bool quad::isIntersecting(quad* quad, local_visualizer* render_agent) {
-	std::cout << "new pair\n";
-	std::cout << "Quad1 info : \n";
-	std::cout << "{blocked1 : ("
-		<< blocked1.x1 << ", " << blocked1.y1 << ", " << blocked1.x2 << ", " << blocked1.y2 << "), blocked2 : ("
-		<< blocked2.x1 << ", " << blocked2.y1 << ", " << blocked2.x2 << ", " << blocked2.y2 << "), free1 : ("
-		<< free1.x1 << ", " << free1.y1 << ", " << free1.x2 << ", " << free1.y2 << "), free2 : ("
-		<< free2.x1 << ", " << free2.y1 << ", " << free2.x2 << ", " << free2.y2 << ")}\n";
-	std::cout << "Quad2 info : \n";
-	std::cout << "{blocked1 : ("
-		<< quad->blocked1.x1 << ", " << quad->blocked1.y1 << ", " << quad->blocked1.x2 << ", " << quad->blocked1.y2 << "), blocked2 : ("
-		<< quad->blocked2.x1 << ", " << quad->blocked2.y1 << ", " << quad->blocked2.x2 << ", " << quad->blocked2.y2 << "), free1 : ("
-		<< quad->free1.x1 << ", " << quad->free1.y1 << ", " << quad->free1.x2 << ", " << quad->free1.y2 << "), free2 : ("
-		<< quad->free2.x1 << ", " << quad->free2.y1 << ", " << quad->free2.x2 << ", " << quad->free2.y2 << ")}\n";
-
-	render_agent->visualize_quads_intersection(this, quad);
+	//render_agent->visualize_quads_intersection(this, quad);
 
 	bool check;
 
 	check = blocked1.isIntersecting(&quad->free1) && blocked1.isIntersecting(&quad->free2);
-	std::cout << " " << check << " ";
 	if (check)
 		return false;
 	check = blocked1.isIntersecting(&quad->blocked1) && blocked1.isIntersecting(&quad->blocked2);
-	std::cout << " " << check << " ";
 	if (check)
 		return false;
 
 	check = blocked2.isIntersecting(&quad->free1) && blocked2.isIntersecting(&quad->free2);
-	std::cout << " " << check << " ";
 	if (check)
 		return false;
 	check = blocked2.isIntersecting(&quad->blocked1) && blocked2.isIntersecting(&quad->blocked2);
-	std::cout << " " << check << " ";
 	if (check)
 		return false;
 
 	check = quad->blocked1.isIntersecting(&free1) && quad->blocked1.isIntersecting(&free2);
-	std::cout << " " << check << " ";
 	if (check)
 		return false;
 	check = quad->blocked1.isIntersecting(&blocked1) && quad->blocked1.isIntersecting(&blocked2);
-	std::cout << " " << check << " ";
 	if (check)
 		return false;
 
 	check = quad->blocked2.isIntersecting(&free1) && quad->blocked2.isIntersecting(&free2);
-	std::cout << " " << check << " ";
 	if (check)
 		return false;
 	check = quad->blocked2.isIntersecting(&blocked1) && quad->blocked2.isIntersecting(&blocked2);
-	std::cout << " " << check << " ";
 	if (check)
 		return false;
-
-
-	std::cout << "\n";
-
-	std::cout << " [INTERSECTION FOUND] : Inter-quad movement possible\n";
 	return true;
 }
 
@@ -468,12 +444,7 @@ bool quad::clockwise_intersection_locator(std::vector<Point>* set_2,
 	return false;
 }
 
-int call_count = 0;
-bool special_debugger = false;
 float quad::common_area(quad* quad, local_visualizer* render_agent) {
-	std::cout << "call count : " << ++call_count << std::endl;
-	if (call_count == 10)
-		special_debugger = true;
 	/*
 	* Step I : Iterate through sides of both quads in clockwise fashion until first
 	*			intersection point is located. add this point to intersection polygon
@@ -485,7 +456,6 @@ float quad::common_area(quad* quad, local_visualizer* render_agent) {
 	* 
 	* Step III : Keep continuing the hunt until point starts repeating
 	*/
-	std::cout << "On a mission: to compute area of common region between two intersecting quads\n";
 	//render_agent->visualize_quads_intersection(this, quad);
 	float area = 0.0;
 
@@ -535,7 +505,6 @@ float quad::common_area(quad* quad, local_visualizer* render_agent) {
 			// finding the first intersection on new line
 			vector_segment edge1;
 			if (flag_set1_vertice) {
-				std::cout << "[NOTICE] : flag_set1_vertice\n";
 				index1++;
 				edge1 = vector_segment(
 					intersection.x,
@@ -550,7 +519,6 @@ float quad::common_area(quad* quad, local_visualizer* render_agent) {
 				}
 			}
 			else if (flag_set2_vertice) {
-				std::cout << "[NOTICE] : flag_set2_vertice\n";
 				index2++;
 				edge1 = vector_segment(
 					intersection.x,
@@ -595,10 +563,6 @@ float quad::common_area(quad* quad, local_visualizer* render_agent) {
 				if (!result) {
 					intersection = Point(set_1.at(index1 % set_1.size()).x, set_1.at(index1 % set_1.size()).y);
 					flag_set1_vertice = true;
-					if (special_debugger) {
-						std::cout << "issuing a set1 flag\n";
-						std::cin.ignore();
-					}
 				}
 			}
 			else {
@@ -623,10 +587,6 @@ float quad::common_area(quad* quad, local_visualizer* render_agent) {
 					if (!result) {
 						intersection = Point(set_2.at(index2 % set_2.size()).x, set_2.at(index2 % set_2.size()).y);
 						flag_set2_vertice = true;
-						if (special_debugger) {
-							std::cout << "issuing a set2 flag\n";
-							std::cin.ignore();
-						}
 					}
 				}
 				else {
@@ -648,10 +608,6 @@ float quad::common_area(quad* quad, local_visualizer* render_agent) {
 					if (!result) {
 						intersection = Point(set_1.at(index1 % set_1.size()).x, set_1.at(index1 % set_1.size()).y);
 						flag_set1_vertice = true;
-						if (special_debugger) {
-							std::cout << "issuing a set1 flag\n";
-							std::cin.ignore();
-						}
 					}
 				}
 			}
@@ -661,13 +617,6 @@ float quad::common_area(quad* quad, local_visualizer* render_agent) {
 				break;
 			}
 			common_region.push_back(intersection);
-
-			if (special_debugger) {
-				int no = common_region.size() - 1;
-				render_agent->add_path(Path(0.0, 0.0, common_region[no].x, common_region[no].y, Color(1.0, 1.0, 0.0)));
-				render_agent->invalidate();
-				std::cin.ignore();
-			}
 			
 			if (flag_set1_vertice || flag_set2_vertice)
 				break;
@@ -688,7 +637,6 @@ float quad::common_area(quad* quad, local_visualizer* render_agent) {
 		);
 	}
 
-	std::cout << "[AREA] : " << area << std::endl;
 	render_agent->visualize_quads_intersection(this, quad, &common_region);
 	//std::cin.ignore();
 
@@ -696,7 +644,7 @@ float quad::common_area(quad* quad, local_visualizer* render_agent) {
 }
 
 void quad::common_area_v2(quad* other, ellipse* common_ellipse, local_visualizer* render_agent) {
-	//render_agent->visualize_quads_intersection(this, quad);
+	//render_agent->visualize_quads_intersection(this, other);
 	float area = 0.0;
 
 	std::vector<Point> set_1, set_2, common_region, sorted_list;
@@ -735,11 +683,14 @@ void quad::common_area_v2(quad* other, ellipse* common_ellipse, local_visualizer
 	// length measure for common poly (A good enough measure to quantify free area overlap between two quads)
 	float length = CompGeomFuncEllipseApprox::distance(common_ellipse->center_x,
 		common_ellipse->center_y, common_region[0].x, common_region[0].y);
+	Point farthest_point = Point(common_region[0].x, common_region[0].y);
 	for (int i = 1; i < common_region.size(); i++) {
 		float len_i = CompGeomFuncEllipseApprox::distance(common_ellipse->center_x,
 			common_ellipse->center_y, common_region[i].x, common_region[i].y);
-		if (len_i > length)
+		if (len_i > length) {
 			length = len_i;
+			farthest_point = Point(common_region[i].x, common_region[i].y);
+		}
 	}
 	// average radii, r = (ab)^0.5 by equation area of a circle to area of ellipse
 	length = length - std::sqrt(common_ellipse->a * common_ellipse->b);
@@ -797,7 +748,6 @@ void quad::common_area_v2(quad* other, ellipse* common_ellipse, local_visualizer
 
 	// if no common point found : 
 	if (common_region.size() < 3) {
-		std::cout << " no intersection, area = 0.0\n";
 		return ;
 	}
 
@@ -871,17 +821,21 @@ void quad::common_area_v2(quad* other, ellipse* common_ellipse, local_visualizer
 	//estimate_ellipse_blockage(common_ellipse, quad->blocked1, &del_area2, &del_len2);
 
 	if (this->me_A == common_ellipse) {
-		this->neighbours_A.push_back(sibling(other, area, length, length_measure2));
+		this->neighbours_A.push_back(sibling(other, area, length, length_measure2, 
+			Point(common_ellipse->center_x, common_ellipse->center_y), farthest_point));
 	}
 	if (this->me_B == common_ellipse) {
-		this->neighbours_B.push_back(sibling(other, area, length, length_measure2));
+		this->neighbours_B.push_back(sibling(other, area, length, length_measure2,
+			Point(common_ellipse->center_x, common_ellipse->center_y), farthest_point));
 	}
 
 	if (other->me_A == common_ellipse) {
-		other->neighbours_A.push_back(sibling(this, area, length, length_measure2));
+		other->neighbours_A.push_back(sibling(this, area, length, length_measure2,
+			Point(common_ellipse->center_x, common_ellipse->center_y), farthest_point));
 	}
 	if (other->me_B == common_ellipse) {
-		other->neighbours_B.push_back(sibling(this, area, length, length_measure2));
+		other->neighbours_B.push_back(sibling(this, area, length, length_measure2,
+			Point(common_ellipse->center_x, common_ellipse->center_y), farthest_point));
 	}
 
 	return;
@@ -1051,7 +1005,6 @@ int ellipse::neighbourSweep::compute_importance(void) {
 	float param2 = ((len1 > len2) ? (len1) : (len2));
 	float param3 = 1 / (((len3 > len4) ? (len3) : (len4)));
 	float importance = param1 * param2 * param3;
-	std::cout << importance << std::endl;
 	this->importance = importance;
 	return importance;
 }
@@ -1145,13 +1098,14 @@ bool ellipse::isInside(float x, float y, int i) {
 	float y_tilt_frame = -x_rel * sin(tilt) + y_rel * cos(tilt);
 
 	float query_angle = atan2(a*y_rel, b*x_rel);
-	if (false) {
-		std::cout << "atan2(y/x) = " << query_angle * 180 / 3.141592 << " degrees" << std::endl;
-		std::cout << "(query_angle, tilt) = " << query_angle << " , " << tilt << std::endl;
-		std::cout << "(x_tilt, limit) -> " << x_tilt_frame << " , " << (a * cos(query_angle - tilt)) << "." << std::endl;
-		std::cout << "(y_tilt, limit) -> " << y_tilt_frame << " , " << (b * sin(query_angle - tilt)) << "." << std::endl;
-		std::cout << "(a, b) -> " << a << " , " << b << "." << std::endl;
-	}
+	if (show_logs)
+		if (false) {
+			std::cout << "atan2(y/x) = " << query_angle * 180 / 3.141592 << " degrees" << std::endl;
+			std::cout << "(query_angle, tilt) = " << query_angle << " , " << tilt << std::endl;
+			std::cout << "(x_tilt, limit) -> " << x_tilt_frame << " , " << (a * cos(query_angle - tilt)) << "." << std::endl;
+			std::cout << "(y_tilt, limit) -> " << y_tilt_frame << " , " << (b * sin(query_angle - tilt)) << "." << std::endl;
+			std::cout << "(a, b) -> " << a << " , " << b << "." << std::endl;
+		}
 
 	float x_factor = x_tilt_frame / (a * cos(query_angle - tilt));
 	if (x_factor > 1 || x_factor < 0)
@@ -1212,36 +1166,28 @@ bool ellipse::checkShielded_reloaded(ellipse* neighbour, local_visualizer* rende
 			neighbours.at(i).internal_tangent2.y2);
 		// if ellipse is already in front of the shielding ellipse
 		bool check0 = internal_chord.leftOn(neighbour->center_x, neighbour->center_y);
-		std::cout << "[KUNDALI] : check0 : " << check0 << std::endl;
 		if (check0)
 			continue;
 		vector_segment* intersection_test0 = nullptr;
 		internal_chord.intersection_points(neighbour, intersection_test0);
-		std::cout << "[KUNDALI] : intersection_test0 : " << (intersection_test0 != nullptr) << std::endl;
 		if (intersection_test0 != nullptr)
 			continue;
 
 		// check if the ellipse is outside the quadrant(formed by 2 tangents) of interest
 		bool check1 = neighbours.at(i).internal_tangent1.leftOn(neighbour->center_x, neighbour->center_y);
 		bool check2 = neighbours.at(i).internal_tangent2.rightOn(neighbour->center_x, neighbour->center_y);
-		std::cout << "[KUNDALI] : check1 : " << check1 << std::endl;
-		std::cout << "[KUNDALI] : check2 : " << check2 << std::endl;
 		if (check1 || check2)
 			continue;
 
 		vector_segment* intersection1 = nullptr, * intersection2 = nullptr;
 		neighbours.at(i).internal_tangent1.intersection_points(neighbour, intersection1);
 		neighbours.at(i).internal_tangent2.intersection_points(neighbour, intersection2);
-		std::cout << "[KUNDALI] : intersection1 : " << (intersection1 == nullptr) << std::endl;
-		std::cout << "[KUNDALI] : intersection2 : " << (intersection2 == nullptr) << std::endl;
-
+		
 		if (intersection1 == nullptr && intersection2 == nullptr) {
-			std::cout << " Far off !!\n";
 			render_agent->shielding_visualizer(this, neighbour);
 			return true;
 		}
 
-		std::cout << "[KUNDALI] : (expose_vector.empty) : " << (expose_vector.empty) << std::endl;
 		if (expose_vector.empty) {
 			expose_vector = boundingChords(intersection1, intersection2);
 		}
@@ -1251,7 +1197,6 @@ bool ellipse::checkShielded_reloaded(ellipse* neighbour, local_visualizer* rende
 			expose_vector.intersection_update(update);
 		}
 	}
-	std::cout << " Nearest neighour certified\n";
 	render_agent->shielding_visualizer(this, neighbour);
 	return false;
 }
@@ -1314,8 +1259,6 @@ bool ellipse::checkShielded_reloaded_v2(ellipse* neighbour, local_visualizer* re
 					}
 					else {
 						// single cut
-						std::cout << "[UPDATE] single cut. updating exposed vector : " 
-							<< intersection_points.x<<", "<< intersection_points.y << std::endl;
 						exposed_segments.at(j).x2 = intersection_points.x;
 						exposed_segments.at(j).y2 = intersection_points.y;
 					}
@@ -1388,11 +1331,9 @@ bool ellipse::checkShielded_reloaded_v2(ellipse* neighbour, local_visualizer* re
 		}
 	}
 	if (exposed_segments.empty()) {
-		std::cout << " Shielded. OFFICIALLY\n";
 		return true;
 	}
 
-	std::cout << " Nearest neighour certified\n";
 	render_agent->shielding_visualizer(this, neighbour);
 	return false;
 }
@@ -1801,12 +1742,6 @@ void local_visualizer::add_path(vector_segment vector_segment, Color color) {
 
 void local_visualizer::draw_ellipse(ellipse ellipse) {
 	int DIVISIONS = 36;
-	std::cout << "Ellipse info\n";
-	std::cout << "center_x : " << ellipse.center_x << std::endl;
-	std::cout << "center_y : " << ellipse.center_y << std::endl;
-	std::cout << "a : " << ellipse.a << std::endl;
-	std::cout << "b : " << ellipse.b << std::endl;
-	std::cout << "tilt : " << ellipse.tilt << std::endl;
 	for (int i = 0; i < DIVISIONS; i++) {
 		float x_i1_no_tilt = ellipse.a * cos(2 * i * PI / DIVISIONS);
 		float y_i1_no_tilt = ellipse.b * sin(2 * i * PI / DIVISIONS);
@@ -1830,12 +1765,6 @@ void local_visualizer::draw_ellipse(ellipse ellipse) {
 
 int local_visualizer::draw_ellipse(ellipse ellipse, Color color) {
 	int DIVISIONS = 36;
-	std::cout << "Ellipse info\n";
-	std::cout << "center_x : " << ellipse.center_x << std::endl;
-	std::cout << "center_y : " << ellipse.center_y << std::endl;
-	std::cout << "a : " << ellipse.a << std::endl;
-	std::cout << "b : " << ellipse.b << std::endl;
-	std::cout << "tilt : " << ellipse.tilt << std::endl;
 	for (int i = 0; i < DIVISIONS; i++) {
 		float x_i1_no_tilt = ellipse.a * cos(2 * i * PI / DIVISIONS);
 		float y_i1_no_tilt = ellipse.b * sin(2 * i * PI / DIVISIONS);
@@ -1987,7 +1916,7 @@ void local_visualizer::visualize_path2(std::vector<quad*>* path, vector_segment 
 				path->at(i)->free2.x1 + path->at(i)->free2.x2) / 4;
 			float center_y2 = (path->at(i)->free1.y1 + path->at(i)->free1.y2 +
 				path->at(i)->free2.y1 + path->at(i)->free2.y2) / 4;
-			add_path(Path(center_x1, center_y1, center_x2, center_y2, Color(1.0, 1.0, 1.0)));
+			add_path(Path(center_x1, center_y1, center_x2, center_y2, Color(0.937f, 0.749f, 0.2196f)));
 		}
 
 		center_x0 = (path->at(path->size() - 1)->free1.x1 + path->at(path->size() - 1)->free1.x2 +
@@ -2002,6 +1931,16 @@ void local_visualizer::visualize_path2(std::vector<quad*>* path, vector_segment 
 		/*std::cin.ignore();
 		clear_paths(path_count);
 		invalidate();*/
+	}
+}
+
+void local_visualizer::visualize_path3(std::vector<Point> path) {
+	if (true) {
+		for (int i = 1; i < path.size(); i++) {
+			add_path(vector_segment(path.at(i - 1).x, path.at(i - 1).y,
+				path.at(i).x, path.at(i).y), Color(0.0, 0.0, 0.0));
+		}
+		invalidate();
 	}
 }
 
@@ -2219,8 +2158,10 @@ void local_visualizer::visualize_ear(int data_x[], int data_y[], std::vector<int
 }
 
 void local_visualizer::invalidate(void) {
-	render_callback(nullptr);
-	renderer->render();
+	if (show_logs) {
+		render_callback(nullptr);
+		renderer->render();
+	}
 }
 
 void elliptical_approx::init(std::vector<Node>* node_list, int width, int height, RenderClass* renderer,
@@ -2243,7 +2184,8 @@ void elliptical_approx::init(std::vector<Node>* node_list, int width, int height
 	map_builder = quad_builder(cluster.ellipse_list, &render_agent);
 }
 
-void elliptical_approx::finder(int start_cell_index, int goal_cell_index) {
+void elliptical_approx::finder(int start_cell_index, int goal_cell_index, 
+	std::chrono::time_point<std::chrono::high_resolution_clock> start) {
 	this->start_cell_index = start_cell_index;
 	this->goal_cell_index = goal_cell_index;
 
@@ -2257,7 +2199,8 @@ void elliptical_approx::finder(int start_cell_index, int goal_cell_index) {
 
 	quad* start_node = nearest_quad(start_x, start_y);
 	quad* goal_node = nearest_quad(goal_x, goal_y);
-	std::cout << "start_node : " << start_node->id << " goal_node : " << goal_node->id << "\n";
+	if (show_logs)
+		std::cout << "start_node : " << start_node->id << " goal_node : " << goal_node->id << "\n";
 
 
 	search_path(start_node, goal_node, start_node->me_A, &feasible_path);
@@ -2284,13 +2227,30 @@ void elliptical_approx::finder(int start_cell_index, int goal_cell_index) {
 	}
 	for (int i = 0; i < feasible_path.size(); i++) {
 		for (int j = feasible_path.size() - 1; j > i; j--) {
-			float exchange_length_ratio = scrape_common_area_measure(feasible_path.at(i), feasible_path.at(j));
-			std::cout << "exchange_zone : " << exchange_length_ratio << "\n";
-			if (exchange_length_ratio > 1.0) {
+
+			float center_x = (feasible_path.at(i)->free1.x1 + feasible_path.at(i)->free1.x2 +
+				feasible_path.at(i)->free2.x1 + feasible_path.at(i)->free2.x2) / 4;
+			float center_y = (feasible_path.at(i)->free1.y1 + feasible_path.at(i)->free1.y2 +
+				feasible_path.at(i)->free2.y1 + feasible_path.at(i)->free2.y2) / 4;
+			if (feasible_path.at(j)->isInside(center_x, center_y)) {
 				for (int k = i + 1; k < j; k++) {
 					feasible_path.erase(feasible_path.begin() + i + 1);
 				}
 				break;
+			}
+
+			float exchange_zone[7] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+			bool intersects = scrape_common_area_measure(feasible_path.at(i), feasible_path.at(j), exchange_zone);
+			if (intersects) {
+				float exchange_length = exchange_zone[1];
+				float exchange_length_ratio = exchange_zone[2];
+				//if (exchange_length_ratio > 1.0) {
+				if (exchange_length > this->ROBOT_SIZE) {
+					for (int k = i + 1; k < j; k++) {
+						feasible_path.erase(feasible_path.begin() + i + 1);
+					}
+					break;
+				}
 			}
 		}
 	}
@@ -2299,9 +2259,55 @@ void elliptical_approx::finder(int start_cell_index, int goal_cell_index) {
 		std::cout << "node[" << i << "] : id " << feasible_path.at(i)->id << std::endl;
 	}
 
+	// local path planning
+	std::vector<Point> local_path;
+	local_path.push_back(Point(start_x, start_y));
+	float center_x0 = (feasible_path.at(0)->free1.x1 + feasible_path.at(0)->free1.x2 +
+		feasible_path.at(0)->free2.x1 + feasible_path.at(0)->free2.x2) / 4;
+	float center_y0 = (feasible_path.at(0)->free1.y1 + feasible_path.at(0)->free1.y2 +
+		feasible_path.at(0)->free2.y1 + feasible_path.at(0)->free2.y2) / 4;
+	local_path.push_back(Point(center_x0, center_y0));
+	for (int i = 1; i < feasible_path.size(); i++) {
+		float exchange_zone[7] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+		bool intersects = scrape_common_area_measure(feasible_path.at(i-1), feasible_path.at(i), exchange_zone);
+		if (intersects) {
+			Point center = Point(exchange_zone[3], exchange_zone[4]);
+			Point far_point = Point(exchange_zone[5], exchange_zone[6]);
+			float ratio = (1 + 2 / exchange_zone[2]);
+			Point pivot = Point((ratio * far_point.x + center.x) / (ratio + 1),
+				(ratio * far_point.y + center.y) / (ratio + 1));
+			local_path.push_back(pivot);
+		}
+		center_x0 = (feasible_path.at(i)->free1.x1 + feasible_path.at(i)->free1.x2 +
+			feasible_path.at(i)->free2.x1 + feasible_path.at(i)->free2.x2) / 4;
+		center_y0 = (feasible_path.at(i)->free1.y1 + feasible_path.at(i)->free1.y2 +
+			feasible_path.at(i)->free2.y1 + feasible_path.at(i)->free2.y2) / 4;
+		local_path.push_back(Point(center_x0, center_y0));
+	}
+	center_x0 = (feasible_path.at(feasible_path.size() - 1)->free1.x1 + feasible_path.at(feasible_path.size() - 1)->free1.x2 +
+		feasible_path.at(feasible_path.size() - 1)->free2.x1 + feasible_path.at(feasible_path.size() - 1)->free2.x2) / 4;
+	center_y0 = (feasible_path.at(feasible_path.size() - 1)->free1.y1 + feasible_path.at(feasible_path.size() - 1)->free1.y2 +
+		feasible_path.at(feasible_path.size() - 1)->free2.y1 + feasible_path.at(feasible_path.size() - 1)->free2.y2) / 4;
+	local_path.push_back(Point(center_x0, center_y0));
+	local_path.push_back(Point(goal_x, goal_y));
+
+
+	auto elapsed = std::chrono::high_resolution_clock::now() - start;
+	long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(
+		elapsed).count();
+	std::cout << "path processed in : " << microseconds << " microseconds\n";
+	run_time.push_back(microseconds);
+
+	long long net_sum = 0;
+	for (int i = 0; i < run_time.size(); i++) {
+		net_sum += run_time.at(i);
+	}
+	net_sum = net_sum / run_time.size();
+	std::cout << "average path processing time : " << net_sum << " microseconds after " << run_time.size() << "iterations\n";
+
 	render_agent.visualize_path(&feasible_path);
-	render_agent.visualize_path2(&feasible_path, vector_segment(start_x, start_y,
-		goal_x, goal_y));
+	render_agent.visualize_path2(&feasible_path, vector_segment(start_x, start_y, goal_x, goal_y));
+	//render_agent.visualize_path3(local_path);
 }
 
 void elliptical_approx::call_next_counter_clockwise(Node* boundary_cell, int dir, Node* stopping_node, bool forward) {
@@ -2323,7 +2329,6 @@ void elliptical_approx::call_next_counter_clockwise(Node* boundary_cell, int dir
 
 	if (next_node->x == stopping_node->x && next_node->y == stopping_node->y) {
 		//if (next_node == stopping_node) {
-		std::cout << "breaking out...\n";
 		return;
 	}
 	contour_builder_v2(next_node, true, false, dir, stopping_node);
@@ -2429,7 +2434,6 @@ void elliptical_approx::boundary_pointers_network_to_points_list(Node* start_nod
 		GL_to_image_coords_temp(GRID_WIDTH, GRID_HEIGHT, start_node->x, start_node->y, &ptx, &pty);
 		points.at(poly_index).push_back(int_point(ptx, pty));
 		if (next_node->x == node_list->at(first_index).x && next_node->y == node_list->at(first_index).y) {
-			std::cout << "extraction_complete\n";
 			break;
 		}
 	}
@@ -2443,7 +2447,8 @@ void elliptical_approx::boundary_pointers_network_to_points_list(Node* start_nod
 				points.at(poly_index).at(i % points.at(poly_index).size()).y,
 				points.at(poly_index).at((i + 1) % points.at(poly_index).size()).x,
 				points.at(poly_index).at((i + 1) % points.at(poly_index).size()).y,
-				Color(1.0, 1.0, 1.0)
+				//Color(0.0, 0.0, 0.0)
+				Color(0.937f, 0.749f, 0.2196f)
 			)
 		);
 	}
@@ -2451,7 +2456,6 @@ void elliptical_approx::boundary_pointers_network_to_points_list(Node* start_nod
 }
 
 void elliptical_approx::contour_analyzer(int first_index, std::vector<std::vector<strip>>* strips) {
-	render_agent.invalidate();
 	// build boundary pointers network
 	contour_builder_v2(&node_list->at(first_index), true, false, 0, &node_list->at(first_index));
 
@@ -2468,6 +2472,7 @@ void elliptical_approx::contour_analyzer(int first_index, std::vector<std::vecto
 	for (int i = 0; i < GRID_HEIGHT; i++) {
 		edges.push_back(std::vector<int>());
 	}
+
 	for (int i = 0; i < points.at(poly_index).size(); i++) {
 		int_point cell_point = points.at(poly_index).at(i);
 		int cell_x = cell_point.x;
@@ -2479,7 +2484,6 @@ void elliptical_approx::contour_analyzer(int first_index, std::vector<std::vecto
 	// for each "y" key in edges. sort "x" values and trim out unnecessary ones
 	for (int i = 0; i<edges.size(); i++) {
 		if (edges.at(i).empty()) {
-			std::cout << "x x x x x\n";
 			continue;
 		}
 		for (int j = 0; j < edges.at(i).size(); j++) {
@@ -2510,10 +2514,6 @@ void elliptical_approx::contour_analyzer(int first_index, std::vector<std::vecto
 				j--;
 			}
 		}
-		for (int j = 0; j < edges.at(i).size(); j++) {
-			std::cout << edges.at(i).at(j) << " ";
-		}
-		std::cout << "\n";
 	}
 
 	// append these edge info to strips list
@@ -2521,7 +2521,9 @@ void elliptical_approx::contour_analyzer(int first_index, std::vector<std::vecto
 
 		int TRAVERSALS = edges.at(i).size();
 		for (int j = 0; j < TRAVERSALS; j++) {
-			if (edges.at(i).empty())
+			/*/[LAST MINUTE EDITS] : if (edges.at(i).empty())
+				continue;*/
+			if (edges.at(i).size() < 2)
 				continue;
 			int start = edges.at(i).at(0);
 			int end = edges.at(i).at(1);
@@ -2543,8 +2545,10 @@ void elliptical_approx::contour_analyzer(int first_index, std::vector<std::vecto
 			}
 		}
 	}
+
 }
 
+int count = 0;
 void elliptical_approx::contour_extractor2(void) {
 	int first_index = -1000;
 	std::vector<std::vector<strip>> strips;
@@ -2567,6 +2571,7 @@ void elliptical_approx::contour_extractor2(void) {
 			}
 
 			if (node_list->at(i * GRID_WIDTH + j).type == BASE_TAKEN) {
+
 				first_index = i * GRID_WIDTH + j;
 				contour_analyzer(first_index, &strips);
 			}
@@ -2586,7 +2591,6 @@ int elliptical_approx::contour_explorer(Node* node, bool* travel_list, int this_
 	case 1:
 		if (node->left->type == START) {
 			render_agent.add_path(Path(node, node->left));
-			std::cout << "New vertice : (" << (this_node_index - 1) % GRID_WIDTH << ", " << (this_node_index - 1) / GRID_WIDTH << ")\n";
 			if (build_contour(node->left, travel_list, this_node_index - 1, remaining_nodes, start-1))
 				return 1;
 		}
@@ -2594,7 +2598,6 @@ int elliptical_approx::contour_explorer(Node* node, bool* travel_list, int this_
 	case 2:
 		if (node->bottom->type == START) {
 			render_agent.add_path(Path(node, node->bottom));
-			std::cout << "New vertice : (" << (this_node_index + GRID_WIDTH) % GRID_WIDTH << ", " << (this_node_index + GRID_WIDTH) / GRID_WIDTH << ")\n";
 			if (build_contour(node->bottom, travel_list, this_node_index + GRID_WIDTH, remaining_nodes, start-1))
 				return 2;
 		}
@@ -2602,7 +2605,6 @@ int elliptical_approx::contour_explorer(Node* node, bool* travel_list, int this_
 	case 3:
 		if (node->right->type == START) {
 			render_agent.add_path(Path(node, node->right));
-			std::cout << "New vertice : (" << (this_node_index + 1) % GRID_WIDTH << ", " << (this_node_index + 1) / GRID_WIDTH << ")\n";
 			if (build_contour(node->right, travel_list, this_node_index + 1, remaining_nodes, start-1))
 				return 3;
 		}
@@ -2610,7 +2612,6 @@ int elliptical_approx::contour_explorer(Node* node, bool* travel_list, int this_
 	case 4:
 		if (node->top->type == START) {
 			render_agent.add_path(Path(node, node->top));
-			std::cout << "New vertice : (" << (this_node_index - GRID_WIDTH) % GRID_WIDTH << ", " << (this_node_index - GRID_WIDTH) / GRID_WIDTH << ")\n";
 			if (build_contour(node->top, travel_list, this_node_index - GRID_WIDTH, remaining_nodes, start-1))
 				return 4;
 		}
@@ -2624,26 +2625,19 @@ int elliptical_approx::contour_explorer(Node* node, bool* travel_list, int this_
 
 bool elliptical_approx::build_contour(Node* node, bool* travel_list, int this_node_index, int remaining_nodes, int starting_param) {
 	if (remaining_nodes <= 0) {
-		std::cout << "Target achieved hence exiting \n";
 		return false;
 	}
 	if (node == nullptr) {
-		std::cout << "Nullptr. Hence terminating \n";
 		return false;
 	}
 	if (this_node_index < 0 || this_node_index >= node_list->size()) {
-		std::cout << "Out of Bounds. Hence preventing \n";
 		return false;
 	}
 	if (travel_list[this_node_index]) {
-		std::cout << "Already explored. Stopping\n";
 		return false;
 	}
 	travel_list[this_node_index] = true;
 	remaining_nodes -= 1;
-
-	std::cout << " self.type : " << node->type << " left : " << node->left->type << 
-		" bottom : " << node->bottom->type << " right : " << node->right->type << " top : " << node->top->type << "\n";
 
 	render_agent.invalidate();
 	std::cin.ignore();
@@ -2818,22 +2812,41 @@ bool elliptical_approx::search_path(quad* start, quad* goal, ellipse* pivot, std
 	return false;
 }
 
-float elliptical_approx::scrape_common_area_measure(quad* quad1, quad* quad2) {
+bool elliptical_approx::scrape_common_area_measure(quad* quad1, quad* quad2, float* metrics) {
+	// metrics : area, len1, len2, centerX, centerY, farX, farY
 	for (int i = 0; i < map_builder.quad_list.size(); i++) {
 		if (&map_builder.quad_list.at(i) == quad1) {
 			for (int j = 0; j < map_builder.quad_list.at(i).neighbours_A.size(); j++) {
 				if (map_builder.quad_list.at(i).neighbours_A.at(j).path == quad2) {
-					return map_builder.quad_list.at(i).neighbours_A.at(j).length_measure2;
+					//return &(map_builder.quad_list.at(i).neighbours_A.at(j));
+					quad::sibling exchange_zone = map_builder.quad_list.at(i).neighbours_A.at(j);
+					metrics[0] = exchange_zone.area_measure;
+					metrics[1] = exchange_zone.length_measure;
+					metrics[2] = exchange_zone.length_measure2;
+					metrics[3] = exchange_zone.ellip_center.x;
+					metrics[4] = exchange_zone.ellip_center.y;
+					metrics[5] = exchange_zone.farthest_point.x;
+					metrics[6] = exchange_zone.farthest_point.y;
+					return true;
 				}
 			}
 			for (int j = 0; j < map_builder.quad_list.at(i).neighbours_B.size(); j++) {
 				if (map_builder.quad_list.at(i).neighbours_B.at(j).path == quad2) {
-					return map_builder.quad_list.at(i).neighbours_B.at(j).length_measure2;
+					//return &(map_builder.quad_list.at(i).neighbours_B.at(j));
+					quad::sibling exchange_zone = map_builder.quad_list.at(i).neighbours_B.at(j);
+					metrics[0] = exchange_zone.area_measure;
+					metrics[1] = exchange_zone.length_measure;
+					metrics[2] = exchange_zone.length_measure2;
+					metrics[3] = exchange_zone.ellip_center.x;
+					metrics[4] = exchange_zone.ellip_center.y;
+					metrics[5] = exchange_zone.farthest_point.x;
+					metrics[6] = exchange_zone.farthest_point.y;
+					return true;
 				}
 			}
 		}
 	}
-	return 0.0;
+	return false;
 }
 
 bool convex_clustering::leftOnly(float line_x1, float line_y1,
@@ -2881,8 +2894,8 @@ float convex_clustering::ear_area_2(std::vector<int>* ear, std::vector<result>* 
 	float skewness = independency_factor / bridge_width;
 
 	if (independency_factor > 0.3 || special) {
-		printf("area = %f. factor = %f. vertices = %d. bridge_width = %f. skewness = %f\n",
-			area, independency_factor, ear->size(), bridge_width, skewness);
+		//printf("area = %f. factor = %f. vertices = %d. bridge_width = %f. skewness = %f\n",
+		//	area, independency_factor, ear->size(), bridge_width, skewness);
 		filter->push_back(result(ear->at(0), area, independency_factor, ear->size(), bridge_width, skewness));
 		render_agent->visualize_ear_2(&points, ear, false);
 	}
@@ -2937,7 +2950,6 @@ float ear_area(std::vector<int>* ear, int data_x[], int data_y[], local_visualiz
 }
 
 void convex_clustering::ear_handler(int edge1, int edge2, int pt, std::vector<std::vector<int>>* poly_indice) {
-	std::cout << "Concave vertex identified : node " << poly_indice->at(0).at(edge2) << ". edge1 = " << poly_indice->at(0).at(edge1) << ", pt = " << poly_indice->at(0).at(pt) << "\n";
 	// ear clipping logic here
 	int start = edge2;
 	int end = edge2;
@@ -2950,7 +2962,6 @@ void convex_clustering::ear_handler(int edge1, int edge2, int pt, std::vector<st
 			data_x[poly_indice->at(0).at((pt + i) % poly_indice->at(0).size())],
 			data_y[poly_indice->at(0).at((pt + i) % poly_indice->at(0).size())]);
 		if (!convex_test) {
-			std::cout<<"[EAR] : convex vertex spotted : node "<<poly_indice->at(0).at((edge2+i)% poly_indice->at(0).size())<<"\n";
 			bool concave_ear = leftOnly(
 				data_x[poly_indice->at(0).at(edge2)], data_y[poly_indice->at(0).at(edge2)],
 				data_x[poly_indice->at(0).at(pt)], data_y[poly_indice->at(0).at(pt)],
@@ -2960,19 +2971,16 @@ void convex_clustering::ear_handler(int edge1, int edge2, int pt, std::vector<st
 				//if ((edge2+i-1)%len(poly_indice[0]) > start):
 				//   end = (edge2 + i - 1) % len(poly_indice[0])
 				end = (pt + i - 1) % poly_indice->at(0).size();
-				std::cout<<"preventing ear from getting concave. start = "<<start<<". end = "<<end<<"\n";
 				break;
 			}
 		}
 		else {
-			printf("[EAR] : concave vertex indicates termination of ear here.\n");
 			end = (edge2 + i) % poly_indice->at(0).size();
 			break;
 		}
 	}
 
 	if (start != end) { // separate out identified ear from the raw polygon
-		std::cout<<"start : "<<start<<".end : "<<end<<"\n";
 		std::vector<int> ear;
 		if (end < start)
 			end += poly_indice->at(0).size();
@@ -3009,7 +3017,6 @@ int convex_clustering::convex_completion_handler(int pt, int edge2, std::vector<
 		//   return 0 # terminate any computation ahead
 		if ((edge2 == poly_indice->at(0).size()) || (poly_indice->at(0).at(edge2) == 1))
 			return 1;
-		std::cout<<"[CONVEX COMPLETION] : triggered. node 0 will be joined with node "<<poly_indice->at(0)[edge2]<<"\n";
 		std::vector<int> ear;
 		for (int i = 0; i < pt; i++) // copy the ear points to a new list
 			ear.push_back(poly_indice->at(0).at(i % poly_indice->at(0).size()));
@@ -3022,16 +3029,18 @@ int convex_clustering::convex_completion_handler(int pt, int edge2, std::vector<
 }
 
 void print_poly_indice(std::vector<std::vector<int>>* poly_indice) {
+	if (show_logs) {
 		//-----------
-	std::cout << "[\n";
-	for (int i = 0; i < poly_indice->size(); i++) {
-		std::cout << "[";
-		for (int j = 0; j < poly_indice->at(i).size(); j++)
-			std::cout << poly_indice->at(i).at(j) << " , ";
-		std::cout << "\b\b]\n";
+		std::cout << "[\n";
+		for (int i = 0; i < poly_indice->size(); i++) {
+			std::cout << "[";
+			for (int j = 0; j < poly_indice->at(i).size(); j++)
+				std::cout << poly_indice->at(i).at(j) << " , ";
+			std::cout << "\b\b]\n";
+		}
+		std::cout << "]\n";
+		//-----------
 	}
-	std::cout << "]\n";
-	//-----------
 }
 
 void convex_clustering::clustering(void) {
@@ -3039,7 +3048,6 @@ void convex_clustering::clustering(void) {
 	for (int i = 0; i < 107; i++) {
 		poly_indice.at(0).push_back(i);
 	}
-	std::cout << "Enters here \n";
 	int index = 0;
 	int circulation_start = poly_indice.at(0).size() - 1;
 	//while (true) { // iterate continously to pick vertices on polygon one-by-one
@@ -3073,7 +3081,6 @@ void convex_clustering::clustering(void) {
 				circulation_start = edge1;
 			}
 			else {
-				std::cout<<"convex vertex : node "<<poly_indice[0][edge2]<<".edge1 = "<<poly_indice[0][edge1]<<", pt = "<<poly_indice[0][pt]<<"\n";
 			}
 				index = (index + 1) % poly_indice.at(0).size();
 			// plot_current_distribution()
@@ -3084,7 +3091,6 @@ void convex_clustering::clustering(void) {
 }
 
 void convex_clustering::filter_dimples_2(std::vector<result>* traversal, std::vector<result>* filter, int filter_size) {
-	std::cout << " length = " << data_size << "\n";
 	for (int i = 0; i < traversal->size(); i++) {
 		std::vector<int> ear;
 		for (int k = 0; k < filter_size; k++) {
@@ -3094,13 +3100,11 @@ void convex_clustering::filter_dimples_2(std::vector<result>* traversal, std::ve
 		ear_area_2(&ear, filter, false);
 	}
 	//std::cin.ignore();
-	std::cout << "Clearing out paths\n";
 	render_agent->clear_path();
 	//std::cin.ignore();
 }
 
 void convex_clustering::filter_dimples(std::vector<result>* traversal, std::vector<result>* filter, int filter_size) {
-	std::cout << " length = " << data_size << "\n";
 	for (int i = 0; i < traversal->size(); i++) {
 		std::vector<int> ear;
 		for (int k = 0; k < filter_size; k++) {
@@ -3110,7 +3114,6 @@ void convex_clustering::filter_dimples(std::vector<result>* traversal, std::vect
 		ear_area(&ear, data_x, data_y, render_agent, filter, false);
 	}
 	std::cin.ignore();
-	std::cout << "Clearing out paths\n";
 	render_agent->clear_path();
 	std::cin.ignore();
 }
@@ -3146,7 +3149,6 @@ void convex_clustering::clustrify_v2(std::vector<result>* dimples, std::vector<s
 	int PARAM_FILTER_SIZE_CENTER_OFFSET_VAL = 2;
 	std::vector<result> results;
 
-	std::cout << "Following pairs will be joinined \n";
 	for (int i = 0; i < dimples->size(); i++) {
 		std::vector<int> ear;
 		int start = (dimples->at((i) % dimples->size()).i + PARAM_FILTER_SIZE_CENTER_OFFSET_VAL)%data_size;
@@ -3159,7 +3161,6 @@ void convex_clustering::clustrify_v2(std::vector<result>* dimples, std::vector<s
 		}
 		ear_area_2(&ear, &results, true);
 		if (abs(results.at(results.size() - 1).independence) > PARAM_CLUSTER_FACTOR_THRESHOLD) {
-			std::cout << start % data_size << " will be joinined with " << end % data_size << "\n";
 			// add new poly-loop to poly-indices
 			clustered_data->push_back({});
 			int index = clustered_data->size() - 1;
@@ -3188,7 +3189,6 @@ void convex_clustering::clustrify(std::vector<result>* dimples, std::vector<std:
 	std::vector<result> results;
 
 
-	std::cout << "Following pairs will be joinined \n";
 	for (int i = 0; i < dimples->size(); i++) {
 		std::vector<int> ear;
 		int start = dimples->at(i).i + 1;
@@ -3201,7 +3201,6 @@ void convex_clustering::clustrify(std::vector<result>* dimples, std::vector<std:
 		}
 		ear_area(&ear, data_x, data_y, render_agent, &results, true);
 		if (abs(results.at(results.size() - 1).independence) > PARAM_CLUSTER_FACTOR_THRESHOLD) {
-			std::cout << start % data_size << " will be joinined with " << end % data_size << "\n";
 			// add new poly-loop to poly-indices
 			clustered_data->push_back({});
 			int index = clustered_data->size() - 1;
@@ -3253,15 +3252,10 @@ void convex_clustering::clustering_3(std::vector<Node>* node_list, int GRID_WIDT
 		updated_vertices_set->clear();
 	}
 
-	for (int i = 0; i < old_vertices_set->size(); i++) {
-		std::cout << old_vertices_set->at(i).i << "     " << old_vertices_set->at(i).area << "     " << old_vertices_set->at(i).independence << "\n";
-	}
-
 	// extracting good dimples
 	for (int i = 0; i < old_vertices_set->size(); i++) {
 		if (old_vertices_set->at((i + 1) % old_vertices_set->size()).i - old_vertices_set->at(i).i == 1) {
 			// new set of interest zone
-			std::cout << "interest zone starts at : " << i;
 			float max_factor = old_vertices_set->at(i).independence;
 			int best_index = i;
 			for (int j = 1; j < old_vertices_set->size(); j++) {
@@ -3273,7 +3267,6 @@ void convex_clustering::clustering_3(std::vector<Node>* node_list, int GRID_WIDT
 				if (i_th_index - last_index > 1) {
 					// end of that set
 					updated_vertices_set->push_back(old_vertices_set->at(best_index));
-					std::cout << " best performer was : " << old_vertices_set->at(best_index).i << ". factor = " << max_factor << "\n";
 					i = (i + j) - 1;
 					break;
 				}
@@ -3291,7 +3284,6 @@ void convex_clustering::clustering_3(std::vector<Node>* node_list, int GRID_WIDT
 	
 	//highlights extracted dimples
 	for (int i = 0; i < old_vertices_set->size(); i++) {
-		std::cout << old_vertices_set->at(i).i + 2 << "\n";
 		node_list->at(points[old_vertices_set->at(i).i + 2].y * GRID_WIDTH + points[old_vertices_set->at(i).i + 2].x).type = START;
 	}
 
@@ -3302,7 +3294,6 @@ void convex_clustering::clustering_3(std::vector<Node>* node_list, int GRID_WIDT
 	}
 	clustrify_v2(old_vertices_set, &clustered_data);
 
-	std::cout << "final outcome\n";
 	//print_poly_indice(&clustered_data);
 
 	for (int i = 0; i < clustered_data.size(); i++) {
@@ -3312,22 +3303,6 @@ void convex_clustering::clustering_3(std::vector<Node>* node_list, int GRID_WIDT
 			clustered_points.at(last_index).push_back(points.at(clustered_data.at(i).at(j)));
 		}
 	}
-	/*//-----------
-	std::cout << "[\n";
-	for (int i = 0; i < clustered_points.size(); i++) {
-		std::cout << "[";
-		for (int j = 0; j < clustered_points.at(i).size(); j++)
-			std::cout << "[" << clustered_points.at(i).at(j).x << ", " << clustered_points.at(i).at(j).y << "] , ";
-		std::cout << "\b\b]\n";
-	}
-	std::cout << "]\n";
-	//-----------
-
-
-	std::cin.ignore();
-	std::cout << "Clearing out paths\n";
-	render_agent->clear_path();
-	std::cin.ignore();*/
 
 	render_agent->draw_ears_v2(&points, &clustered_data);
 
@@ -3363,7 +3338,6 @@ void convex_clustering::clustering_2(std::vector<Node>* node_list, int GRID_WIDT
 
 	//highlights extracted dimples
 	for (int i = 0; i < fourth_filter.size(); i++) {
-		std::cout << fourth_filter[i].i + 1 << "\n";
 		node_list->at(data_y[fourth_filter[i].i + 1] * GRID_WIDTH + data_x[fourth_filter[i].i + 1]).type = START;
 	}
 
@@ -3374,12 +3348,10 @@ void convex_clustering::clustering_2(std::vector<Node>* node_list, int GRID_WIDT
 	}
 	clustrify(&fourth_filter, &clustered_data);
 
-	std::cout << "final outcome\n";
 	print_poly_indice(&clustered_data);
 
 
 	std::cin.ignore();
-	std::cout << "Clearing out paths\n";
 	render_agent->clear_path();
 	std::cin.ignore();
 
@@ -3409,11 +3381,6 @@ void convex_clustering::ellipse_fitter(int poly_index) {
 	Eigen::VectorXd p = X.colPivHouseholderQr().solve(Y);
 
 	// Extract the parameters of the ellipse from the vector p
-	std::cout << " p(0) " << p(0) << std::endl;
-	std::cout << " p(1) " << p(1) << std::endl;
-	std::cout << " p(2) " << p(2) << std::endl;
-	std::cout << " p(3) " << p(3) << std::endl;
-	std::cout << " p(4) " << p(4) << std::endl;
 
 	double dem = p(1) * p(1) - 4 * p(0) * p(2);			// dem = b*b - 4ac
 	double x0 = (2 * p(2) * p(3) - p(1) * p(4)) / dem;	// x0 = (2cd - be)/dem
@@ -3429,18 +3396,17 @@ void convex_clustering::ellipse_fitter(int poly_index) {
 	
 	double theta = std::atan2(p(1) , (p(2) - p(0) - param));
 												// theta = atan2(b, c-a-param) * 180 / PI
-	std::cout << "dem = " << dem << ", x0 = " << x0 << ", y0 = " << y0 << ", axi_max = " << axi_max << ", axi_min = " << axi_min << ", theta = " << (theta*57.2958) << std::endl;
 	if (axi_max < 0) {
-		std::cout << "[POSSIBLE DELETION] : axi_max negative\n";
+		//std::cout << "[POSSIBLE DELETION] : axi_max negative\n";
 		return;
 	}
 	if (axi_min < 0) {
-		std::cout << "[POSSIBLE DELETION] : axi_min negative\n";
+		//std::cout << "[POSSIBLE DELETION] : axi_min negative\n";
 		return;
 	}
 
 	this->ellipse_list.push_back(ellipse(x0, y0, axi_max, axi_min, theta));
-	render_agent->draw_ellipse(ellipse_list.at(ellipse_list.size()-1));
+	//render_agent->draw_ellipse(ellipse_list.at(ellipse_list.size()-1));
 
 }
 
@@ -3509,7 +3475,6 @@ quad_builder::quad_builder(std::vector<ellipse> list, local_visualizer* render_a
 	mfa = mfa / quad_list.size();
 	mpl = mpl / quad_list.size();
 	mpw = mpw / quad_list.size();
-	std::cout << "[STATS] : avg_mfa = " << mfa << " avg_mpl = " << mpl << " avg_mpw = " << mpw << "\n";
 	for (int i = 0; i < quad_list.size(); i++) {
 		if (quad_list.at(i).mpl < mpl / 3 || quad_list.at(i).mpw < mpw / 3) {
 			quad_list.erase(quad_list.begin() + i);

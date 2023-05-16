@@ -143,7 +143,11 @@ public:
 	Node* end_a, * end_b;
 	float x1, y1, x2, y2;
 	int mode = 0;
-	Color color = Color(0.3f, 0.85f, 0.5f);;
+	Color color = Color(0.937f, 0.749f, 0.2196f);
+	//Color color = Color(0.918f, 0.416f, 0.278f);
+	//Color color = Color(0.99f, 0.729f, 0.1294f);
+	//Color color = Color(0.953f, 0.42f, 0.11f);
+	//Color color = Color(0.3f, 0.85f, 0.5f);;
 	/*
 	* mode = 1 : node id method
 	* mode = 2 : node reference method

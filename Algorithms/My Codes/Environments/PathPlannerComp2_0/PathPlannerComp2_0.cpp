@@ -1,6 +1,7 @@
 ﻿// PathPlannerComp2_0.cpp : Defines the entry point for the application.
 //
 
+
 #include "PathPlannerComp2_0.h"
 #include "Header Files/global_variables.h"
 #include "Header Files/RenderClass.h"
@@ -12,6 +13,7 @@
 #include "Header Files/Algorithms/voronoi.h"
 #include "Header Files/elliptical_approx.h"
 #include <vector>
+#include <chrono>
 
 // initializations
 RenderClass renderer;
@@ -30,8 +32,10 @@ int algorithm_mode = ELLIPTICAL_APPROX;
 
 //constants
 float current_color[] = { 0.7f, 0.15f, 0.5f };
-Color color_list[] = { Color(1.0f, 0.0f, 0.0f), Color(0.7f, 0.15f, 0.5f), Color(0.2f, 0.2f, 1.0f),
-							Color(0.0f, 1.0f, 0.0f), Color(0.3f, 0.85f, 0.5f) };
+Color color_list[] = { Color(1.0f, 0.0f, 0.0f), Color(0.886f, 0.957f, 0.922f), Color(0.0627f, 0.298f, 0.5686f),
+							Color(0.0f, 1.0f, 0.0f),  Color(0.3f, 0.85f, 0.5f)};
+
+//Color(0.012f, 0.235f, 0.423f)
 
 float half_node_size = 0.04f;
 float half_thickness_path = 0.005f;
@@ -63,7 +67,8 @@ void update_starting_cell(int updated_index) {
 	nodes.at(start_cell_index).type = START;
 	nodes.at(start_cell_index).empty = true;
 	algo_graph = &(nodes.at(start_cell_index));
-	std::cout << "starting cell updated to  : " << updated_index << " \n";
+	if (show_logs)
+		std::cout << "starting cell updated to  : " << updated_index << " \n";
 }
 
 void update_target_cell(int updated_index) {
@@ -72,7 +77,8 @@ void update_target_cell(int updated_index) {
 	goal_cell_index = updated_index;
 	nodes.at(goal_cell_index).type = GOAL;
 	nodes.at(goal_cell_index).empty = true;
-	std::cout << "target cell updated to  : " << updated_index << " \n";
+	if (show_logs)
+		std::cout << "target cell updated to  : " << updated_index << " \n";
 }
 
 void array_updater(std::vector<float>* vertices);
@@ -104,7 +110,8 @@ void find_path() {
 
 	// ------- Elliptical Approx
 	if (algorithm_mode == ELLIPTICAL_APPROX) {
-		approximater.finder(start_cell_index, goal_cell_index);
+		auto start = std::chrono::high_resolution_clock::now();
+		approximater.finder(start_cell_index, goal_cell_index, start);
 	}
 }
 
@@ -456,19 +463,26 @@ int main() {
 
 	if (true) {//bypassing all the algo
 		//insert_nodes_grid();
-		//start_cell_index = 30300;
+		//start_cell_index = 50;
 		start_cell_index = 1700;
 		nodes.at(start_cell_index).type = START;
 		nodes.at(start_cell_index).cost = 0;
 		algo_graph = &(nodes.at(start_cell_index));
-		goal_cell_index = 12880;
-		//goal_cell_index = 30302;
+		//goal_cell_index = 12880;
+		//goal_cell_index = 10208;
+		goal_cell_index = 4000;
 		nodes.at(goal_cell_index).type = GOAL;
 
 		if (algorithm_mode == VORONOI)
 			voronoi.init(&nodes, grid_width, grid_height, &renderer, &paths, array_updater);
 		if (algorithm_mode == ELLIPTICAL_APPROX) {
+			auto start = std::chrono::high_resolution_clock::now();
 			approximater.init(&nodes, grid_width, grid_height, &renderer, &paths, array_updater);
+
+			auto elapsed = std::chrono::high_resolution_clock::now() - start;
+			long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(
+				elapsed).count();
+			std::cout << "Configuration time : " << microseconds << " microseconds\n";
 		}
 		find_path();
 	}

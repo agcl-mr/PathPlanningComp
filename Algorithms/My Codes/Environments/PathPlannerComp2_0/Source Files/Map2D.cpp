@@ -43,19 +43,19 @@ void Map2D::create_nodes(unsigned char* img, int height, int width, int channels
 	half_node_size = 0.5 / scale;
 
 	for (int channel = 0; channel < 1; channel++) {
-		std::cout << "CHANNEL " << channel << std::endl;
+		if (show_logs)
+			std::cout << "CHANNEL " << channel << std::endl;
 		for (int i = 0; i < height; i++) {
 			for (int j = 0; j < width; j++) {
 				unsigned char* pixelOffset = img + (j + width * i) * channels;
 				nodes.insert(nodes.end(), Node((j-x_off)/scale, -(i-y_off)/scale));
-				if (static_cast<unsigned int>(pixelOffset[channel]) == 255)
-					;//std::cout << " " << "  ";
+				if (static_cast<unsigned int>(pixelOffset[channel]) == 255) {
+
+				}
 				else {
-					//std::cout << "*" << "  ";
 					nodes.at(nodes.size()-1).check();
 				}
 			}
-			std::cout << std::endl;
 		}
 	}
 }
@@ -64,8 +64,9 @@ void Map2D::create_nodes(unsigned char* img, int height, int width, int channels
 void Map2D::add_nodes_to_render_queue() {
 	unsigned int index = (unsigned int)(renderer.vertices.size() / 6);
 	for (int i = 0; i < nodes.size(); i++) {
-		if (i % 1000 == 0)
-			std::cout << i << "\n";
+		if (show_logs)
+			if (i % 1000 == 0)
+				std::cout << i << "\n";
 		//unsigned int index = preview.vertices.size() / 6;
 		Color color = Color();
 		switch (nodes.at(i).type)
@@ -102,8 +103,8 @@ int Map2D::init() {
 	//renderer.init(mouse_triggers_null, keyboard_triggers_null, "Map Preview @ME18B074");
 
     //unsigned char* img = stbi_load("C:/Users/HP/Downloads/pat1.bmp", &width, &height, &channels, 0);
-	//unsigned char* img = stbi_load("F:/2022/DDP_ME18B074/Data/Maps/map12.bmp", &width, &height, &channels, 0);
-	//unsigned char* img = stbi_load("E:/2022/DDP_ME18B074/Data/Maps/map12.bmp", &width, &height, &channels, 0);
+	//unsigned char* img = stbi_load("E:/2022/DDP_ME18B074/Data/Maps/map13.bmp", &width, &height, &channels, 0);
+	//unsigned char* img = stbi_load("E:/2022/DDP_ME18B074/Data/Maps/map11.bmp", &width, &height, &channels, 0);
 	unsigned char* img = stbi_load("E:/2022/DDP_ME18B074/Data/Images/exp6.bmp", &width, &height, &channels, 0);
 	//unsigned char* img = stbi_load("E:/2022/DDP_ME18B074/Data/Maps/map2.bmp", &width, &height, &channels, 0);
 	if (img == NULL) {
@@ -116,7 +117,8 @@ int Map2D::init() {
 	create_nodes(img, height, width, channels);
 
 	create_graph_from_nodes(height, width);
-	std::cout << " nodes size : " << nodes.size() << std::endl;
+	if (show_logs)
+		std::cout << " nodes size : " << nodes.size() << std::endl;
 
 	//renderer.vertices.clear();
 	//renderer.indices.clear();

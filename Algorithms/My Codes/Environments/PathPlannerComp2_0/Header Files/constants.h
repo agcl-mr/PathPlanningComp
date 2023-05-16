@@ -16,4 +16,6 @@
 
 #define FLOATING_PRECISION 0.001
 
+#define show_logs true
+
 #endif

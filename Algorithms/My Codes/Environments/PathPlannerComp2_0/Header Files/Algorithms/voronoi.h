@@ -139,7 +139,7 @@ public:
 			this->external_range = polygonEdge();
 			this->pointer = neighbour;
 			this->id = ("GC" + std::to_string(me_id)) + ("X" + std::to_string(neighbour->uniqueID));
-			std::cout << "NEW quad created : " << this->id << std::endl;
+			//std::cout << "NEW quad created : " << this->id << std::endl;
 		}
 
 		void update_tangents_info(polygonEdge internal_tangent1, polygonEdge internal_tangent2, polygonEdge internal_range,

@@ -1137,6 +1137,8 @@ void voronoi_algo::init(std::vector<Node>* node_list, int width, int height, Ren
 	this->render_agent = renderAgent(GRID_WIDTH, renderer, paths, func_updater);
 
 	locate_obstacles();
+	this->render_agent.invalidate();
+	std::cin.ignore();
 
 	// create empty neighbour map spaces
 	for (int j = 0; j < obstacles.size(); j++) {
