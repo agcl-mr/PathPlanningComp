@@ -18,7 +18,7 @@ add_executable (PathPlannerComp2_0
 "Source Files/elliptical_approx.cpp"
 "Source Files/Algorithms/a_star.cpp"
 "Source Files/Algorithms/genetic.cpp"
-"Source Files/Algorithms/voronoi.cpp")
+"Source Files/Algorithms/voronoi.cpp" "Header Files/pre_built_algo.h" "Source Files/pre_built_algo.cpp")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET PathPlannerComp2_0 PROPERTY CXX_STANDARD 20)
@@ -48,3 +48,7 @@ set(OpenCV_DIR "${VCPKG_INSTALLED_DIR}/x64-windows/share/opencv4")
 
     find_package(Stb REQUIRED)
     target_include_directories(PathPlannerComp2_0 PRIVATE ${Stb_INCLUDE_DIR})
+
+    find_package(ompl CONFIG REQUIRED)
+    target_link_libraries(PathPlannerComp2_0 PRIVATE ompl)
+    

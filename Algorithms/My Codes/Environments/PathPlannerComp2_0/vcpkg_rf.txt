@@ -6,3 +6,4 @@ glslang
 stb
 dlib
 eigen3
+ompl

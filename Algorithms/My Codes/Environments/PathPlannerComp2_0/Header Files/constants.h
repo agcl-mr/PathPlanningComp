@@ -11,11 +11,12 @@
 #define GENETIC 102
 #define VORONOI 103
 #define ELLIPTICAL_APPROX 104
+#define PRE_BUILT 105
 
 #define PI 2 * acos(0.0)
 
 #define FLOATING_PRECISION 0.001
 
-#define show_logs true
+#define show_logs false
 
 #endif

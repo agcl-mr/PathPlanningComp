@@ -303,6 +303,16 @@ public:
 private:
 };
 
+struct local_path_node {
+	Point coords;
+	quad* freeCell;
+
+	local_path_node(float x, float y, quad* freeCell) {
+		this->coords = Point(x, y);
+		this->freeCell = freeCell;
+	}
+};
+
 class local_visualizer {
 public:
 	std::vector<Path>* paths;
@@ -358,7 +368,7 @@ public:
 
 	void visualize_path2(std::vector<quad*>* path, vector_segment start_goal);
 
-	void visualize_path3(std::vector<Point> path);
+	void visualize_path3(std::vector<local_path_node> path);
 
 	void visualize_graph_exploration_options(quad* node);
 
@@ -531,6 +541,16 @@ private:
 	void compute_search_order(std::vector<quad::sibling>* list, std::vector<int>* order, ellipse* common_ellip);
 
 	bool scrape_common_area_measure(quad* quad1, quad* quad2, float* metrics);
+
+	void path_cleanup(std::vector<quad*>* feasible_path);
+
+	void path_cleanup(std::vector<quad*>* feasible_path, std::vector<local_path_node>* local_path);
+
+	int smoothen_paths(int index, std::vector<quad*>* path_list);
+
+	bool check_contains(std::vector<quad*>* quads, std::vector<vector_segment>* edges);
+
+	void local_path_planning(std::vector<quad*>* feasible_path, std::vector<local_path_node>* local_path);
 };
 
 #endif

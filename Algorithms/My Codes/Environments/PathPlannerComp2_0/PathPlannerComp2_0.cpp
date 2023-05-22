@@ -3,17 +3,6 @@
 
 
 #include "PathPlannerComp2_0.h"
-#include "Header Files/global_variables.h"
-#include "Header Files/RenderClass.h"
-#include "Header Files/Map2D.h"
-#include "Header Files/mcc.h"
-#include "Header Files/constants.h"
-#include "Header Files/Algorithms/a_star.h"
-#include "Header Files/Algorithms/genetic.h"
-#include "Header Files/Algorithms/voronoi.h"
-#include "Header Files/elliptical_approx.h"
-#include <vector>
-#include <chrono>
 
 // initializations
 RenderClass renderer;
@@ -27,8 +16,10 @@ a_star_algo a_star;
 genetic_algo genetic;
 voronoi_algo voronoi;
 elliptical_approx approximater;
+algos pre_built_algos;
 
-int algorithm_mode = ELLIPTICAL_APPROX;
+int algorithm_mode = PRE_BUILT;
+//int algorithm_mode = ELLIPTICAL_APPROX;
 
 //constants
 float current_color[] = { 0.7f, 0.15f, 0.5f };
@@ -112,6 +103,16 @@ void find_path() {
 	if (algorithm_mode == ELLIPTICAL_APPROX) {
 		auto start = std::chrono::high_resolution_clock::now();
 		approximater.finder(start_cell_index, goal_cell_index, start);
+	}
+
+	// ------- OMPL algos
+	if (algorithm_mode == PRE_BUILT){
+		//renderer.clean_up();
+		//pre_built_algos.dijkstras();
+		//pre_built_algos.abitStar();
+		pre_built_algos.rrtStar(start_cell_index, goal_cell_index);
+		array_updater(nullptr);
+		renderer.render();
 	}
 }
 
@@ -470,7 +471,7 @@ int main() {
 		algo_graph = &(nodes.at(start_cell_index));
 		//goal_cell_index = 12880;
 		//goal_cell_index = 10208;
-		goal_cell_index = 4000;
+		goal_cell_index = 8300;
 		nodes.at(goal_cell_index).type = GOAL;
 
 		if (algorithm_mode == VORONOI)
@@ -484,6 +485,8 @@ int main() {
 				elapsed).count();
 			std::cout << "Configuration time : " << microseconds << " microseconds\n";
 		}
+		if (algorithm_mode == PRE_BUILT)
+			pre_built_algos.updateObstacleMap(&nodes, grid_width, grid_height, &paths);
 		find_path();
 	}
 
@@ -505,9 +508,13 @@ int main() {
 		add_paths_to_render_queue(paths);
 	}
 
+	if (algorithm_mode == PRE_BUILT) {
+		add_nodes_to_render_queue(nodes);
+		add_paths_to_render_queue(paths);
+	}
+
 
 	renderer.rendering_thread();
-	//renderer.clean_up();
 	return 0;
 }
 //voronoi -- martin held

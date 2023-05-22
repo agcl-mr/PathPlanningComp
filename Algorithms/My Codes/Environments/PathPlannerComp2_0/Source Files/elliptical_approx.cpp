@@ -1934,11 +1934,12 @@ void local_visualizer::visualize_path2(std::vector<quad*>* path, vector_segment 
 	}
 }
 
-void local_visualizer::visualize_path3(std::vector<Point> path) {
+void local_visualizer::visualize_path3(std::vector<local_path_node> path) {
 	if (true) {
 		for (int i = 1; i < path.size(); i++) {
-			add_path(vector_segment(path.at(i - 1).x, path.at(i - 1).y,
-				path.at(i).x, path.at(i).y), Color(0.0, 0.0, 0.0));
+			add_path(vector_segment(path.at(i - 1).coords.x, path.at(i - 1).coords.y,
+				//path.at(i).x, path.at(i).y), Color(0.0, 0.0, 0.0));
+			path.at(i).coords.x, path.at(i).coords.y), Color(1.0, 0.0, 0.0));
 		}
 		invalidate();
 	}
@@ -2208,89 +2209,19 @@ void elliptical_approx::finder(int start_cell_index, int goal_cell_index,
 		search_path(start_node, goal_node, start_node->me_B, &feasible_path);
 
 	// path cleanup
-	for (int i = 0; i < feasible_path.size(); i++) {
-		if (i != 0) {
-			if (feasible_path.at(i)->isInside(start_x, start_y)) {
-				for (int j = 0; j < i; j++) {
-					feasible_path.erase(feasible_path.begin() + 0);
-				}
-				i = -1; // this will start next iteration as i=0
-				continue;
-			}
-		}
-		if (feasible_path.at(i)->isInside(goal_x, goal_y)) {
-			for (int j = i + 1; j < feasible_path.size(); j++) {
-				feasible_path.erase(feasible_path.begin() + i + 1);
-			}
-			continue;
-		}
-	}
-	for (int i = 0; i < feasible_path.size(); i++) {
-		for (int j = feasible_path.size() - 1; j > i; j--) {
+	//path_cleanup(&feasible_path);
 
-			float center_x = (feasible_path.at(i)->free1.x1 + feasible_path.at(i)->free1.x2 +
-				feasible_path.at(i)->free2.x1 + feasible_path.at(i)->free2.x2) / 4;
-			float center_y = (feasible_path.at(i)->free1.y1 + feasible_path.at(i)->free1.y2 +
-				feasible_path.at(i)->free2.y1 + feasible_path.at(i)->free2.y2) / 4;
-			if (feasible_path.at(j)->isInside(center_x, center_y)) {
-				for (int k = i + 1; k < j; k++) {
-					feasible_path.erase(feasible_path.begin() + i + 1);
-				}
-				break;
-			}
-
-			float exchange_zone[7] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-			bool intersects = scrape_common_area_measure(feasible_path.at(i), feasible_path.at(j), exchange_zone);
-			if (intersects) {
-				float exchange_length = exchange_zone[1];
-				float exchange_length_ratio = exchange_zone[2];
-				//if (exchange_length_ratio > 1.0) {
-				if (exchange_length > this->ROBOT_SIZE) {
-					for (int k = i + 1; k < j; k++) {
-						feasible_path.erase(feasible_path.begin() + i + 1);
-					}
-					break;
-				}
-			}
-		}
-	}
-
-	for (int i = 0; i < feasible_path.size(); i++) {
-		std::cout << "node[" << i << "] : id " << feasible_path.at(i)->id << std::endl;
+	// path smoothening
+	for (int i = 1; i < feasible_path.size(); i++) {
+		//int additions = smoothen_paths(i, &feasible_path);
+		//i += additions;
 	}
 
 	// local path planning
-	std::vector<Point> local_path;
-	local_path.push_back(Point(start_x, start_y));
-	float center_x0 = (feasible_path.at(0)->free1.x1 + feasible_path.at(0)->free1.x2 +
-		feasible_path.at(0)->free2.x1 + feasible_path.at(0)->free2.x2) / 4;
-	float center_y0 = (feasible_path.at(0)->free1.y1 + feasible_path.at(0)->free1.y2 +
-		feasible_path.at(0)->free2.y1 + feasible_path.at(0)->free2.y2) / 4;
-	local_path.push_back(Point(center_x0, center_y0));
-	for (int i = 1; i < feasible_path.size(); i++) {
-		float exchange_zone[7] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-		bool intersects = scrape_common_area_measure(feasible_path.at(i-1), feasible_path.at(i), exchange_zone);
-		if (intersects) {
-			Point center = Point(exchange_zone[3], exchange_zone[4]);
-			Point far_point = Point(exchange_zone[5], exchange_zone[6]);
-			float ratio = (1 + 2 / exchange_zone[2]);
-			Point pivot = Point((ratio * far_point.x + center.x) / (ratio + 1),
-				(ratio * far_point.y + center.y) / (ratio + 1));
-			local_path.push_back(pivot);
-		}
-		center_x0 = (feasible_path.at(i)->free1.x1 + feasible_path.at(i)->free1.x2 +
-			feasible_path.at(i)->free2.x1 + feasible_path.at(i)->free2.x2) / 4;
-		center_y0 = (feasible_path.at(i)->free1.y1 + feasible_path.at(i)->free1.y2 +
-			feasible_path.at(i)->free2.y1 + feasible_path.at(i)->free2.y2) / 4;
-		local_path.push_back(Point(center_x0, center_y0));
-	}
-	center_x0 = (feasible_path.at(feasible_path.size() - 1)->free1.x1 + feasible_path.at(feasible_path.size() - 1)->free1.x2 +
-		feasible_path.at(feasible_path.size() - 1)->free2.x1 + feasible_path.at(feasible_path.size() - 1)->free2.x2) / 4;
-	center_y0 = (feasible_path.at(feasible_path.size() - 1)->free1.y1 + feasible_path.at(feasible_path.size() - 1)->free1.y2 +
-		feasible_path.at(feasible_path.size() - 1)->free2.y1 + feasible_path.at(feasible_path.size() - 1)->free2.y2) / 4;
-	local_path.push_back(Point(center_x0, center_y0));
-	local_path.push_back(Point(goal_x, goal_y));
+	std::vector<local_path_node> local_path;
+	local_path_planning(&feasible_path, &local_path);
 
+	path_cleanup(&feasible_path, &local_path);
 
 	auto elapsed = std::chrono::high_resolution_clock::now() - start;
 	long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -2305,9 +2236,9 @@ void elliptical_approx::finder(int start_cell_index, int goal_cell_index,
 	net_sum = net_sum / run_time.size();
 	std::cout << "average path processing time : " << net_sum << " microseconds after " << run_time.size() << "iterations\n";
 
-	render_agent.visualize_path(&feasible_path);
-	render_agent.visualize_path2(&feasible_path, vector_segment(start_x, start_y, goal_x, goal_y));
-	//render_agent.visualize_path3(local_path);
+	//render_agent.visualize_path(&feasible_path);
+	//render_agent.visualize_path2(&feasible_path, vector_segment(start_x, start_y, goal_x, goal_y));
+	render_agent.visualize_path3(local_path);
 }
 
 void elliptical_approx::call_next_counter_clockwise(Node* boundary_cell, int dir, Node* stopping_node, bool forward) {
@@ -2684,7 +2615,7 @@ float elliptical_approx::heuristic_function(quad::sibling* node, ellipse* pivot_
 	importance = 1/node->path->distance(goal_x, goal_y);
 
 	// method II : maximize path width
-	importance = importance * node->path->mpw;
+	//importance = importance * node->path->mpw;
 
 	// method III : maximize length of common junction 
 	importance = importance * node->length_measure2;
@@ -2718,10 +2649,6 @@ void elliptical_approx::compute_search_order(std::vector<quad::sibling>* list, s
 bool elliptical_approx::search_path(quad* start, quad* goal, ellipse* pivot, std::vector<quad*>* path) {
 	// mark this nodes signature on path
 	path->push_back(start);
-	/*/render_agent.draw_quad(start, Color(1.0, 0.0, 0.0));
-	render_agent.draw_quad(goal, Color(0.0, 1.0, 0.0));
-	//render_agent.visualize_graph_exploration_options(start);
-	std::cin.ignore();*/
 
 	// if goal point is inside current node; path finding succeed.
 	if (start->isInside(goal_x, goal_y))
@@ -2846,6 +2773,391 @@ bool elliptical_approx::scrape_common_area_measure(quad* quad1, quad* quad2, flo
 			}
 		}
 	}
+	return false;
+}
+
+void elliptical_approx::path_cleanup(std::vector<quad*>* feasible_path) {
+	for (int i = 0; i < feasible_path->size(); i++) {
+		if (i != 0) {
+			if (feasible_path->at(i)->isInside(start_x, start_y)) {
+				for (int j = 0; j < i; j++) {
+					feasible_path->erase(feasible_path->begin() + 0);
+				}
+				i = -1; // this will start next iteration as i=0
+				continue;
+			}
+		}
+		if (feasible_path->at(i)->isInside(goal_x, goal_y)) {
+			for (int j = i + 1; j < feasible_path->size(); j++) {
+				feasible_path->erase(feasible_path->begin() + i + 1);
+			}
+			continue;
+		}
+	}
+	for (int i = 0; i < feasible_path->size(); i++) {
+		for (int j = feasible_path->size() - 1; j > i; j--) {
+
+			float center_x = (feasible_path->at(i)->free1.x1 + feasible_path->at(i)->free1.x2 +
+				feasible_path->at(i)->free2.x1 + feasible_path->at(i)->free2.x2) / 4;
+			float center_y = (feasible_path->at(i)->free1.y1 + feasible_path->at(i)->free1.y2 +
+				feasible_path->at(i)->free2.y1 + feasible_path->at(i)->free2.y2) / 4;
+			if (feasible_path->at(j)->isInside(center_x, center_y)) {
+				for (int k = i + 1; k < j; k++) {
+					feasible_path->erase(feasible_path->begin() + i + 1);
+				}
+				break;
+			}
+
+			float exchange_zone[7] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+			bool intersects = scrape_common_area_measure(feasible_path->at(i), feasible_path->at(j), exchange_zone);
+			if (intersects) {
+				float exchange_length = exchange_zone[1];
+				float exchange_length_ratio = exchange_zone[2];
+				//if (exchange_length_ratio > 1.0) {
+				if (exchange_length > this->ROBOT_SIZE) {
+					for (int k = i + 1; k < j; k++) {
+						feasible_path->erase(feasible_path->begin() + i + 1);
+					}
+					break;
+				}
+			}
+		}
+	}
+
+	for (int i = 0; i < feasible_path->size(); i++) {
+		std::cout << "node[" << i << "] : id " << feasible_path->at(i)->id << std::endl;
+	}
+}
+
+void elliptical_approx::path_cleanup(std::vector<quad*>* feasible_path, std::vector<local_path_node>* local_path) {
+	bool break_flag = false;
+	for (int i = 0; i < local_path->size(); i++) {
+		break_flag = false;
+		for (int j = 0; j < feasible_path->size(); j++) {
+			if (feasible_path->at(j)->isInside(local_path->at(i).coords.x, local_path->at(i).coords.y)) {
+				for (int k = local_path->size() - 1; k >i; k--) {
+					if (feasible_path->at(j)->isInside(local_path->at(k).coords.x, local_path->at(k).coords.y)) {
+						for (int l = i + 1; l < k; l++) {
+							local_path->erase(local_path->begin() + i + 1);
+						}
+						break_flag = true;
+						break;
+					}
+				}
+			}
+			if (break_flag)
+				break;
+		}
+	}
+
+	for (int i = 2; i < local_path->size() - 1; i++) {
+		if (local_path->at(i - 1).freeCell == local_path->at(i).freeCell)
+			continue;
+		std::vector<quad*> quads;
+		quads.push_back(local_path->at(i - 1).freeCell);
+		quads.push_back(local_path->at(i).freeCell);
+		std::vector<vector_segment> path;
+		path.push_back(vector_segment(local_path->at(i - 1).coords.x,
+			local_path->at(i - 1).coords.y, local_path->at(i).coords.x,
+			local_path->at(i).coords.y));
+		std::vector<quad*> quads_copy;
+		std::vector<vector_segment> path_copy;
+		for (int j = 0; j < quads.size(); j++) {
+			quads_copy.push_back(quads.at(j));
+		}
+		for (int j = 0; j < path.size(); j++) {
+			path_copy.push_back(path.at(j));
+		}
+		if (check_contains(&quads_copy, &path_copy))
+			continue;
+
+		ellipse* common_ellip, * obstacle1, * obstacle2;
+		vector_segment sweep_start, sweep_end;
+		if (local_path->at(i - 1).freeCell->me_A == local_path->at(i).freeCell->me_A) {
+			common_ellip = local_path->at(i).freeCell->me_A;
+			obstacle1 = local_path->at(i - 1).freeCell->me_B;
+			obstacle2 = local_path->at(i).freeCell->me_B;
+		}
+		else if (local_path->at(i - 1).freeCell->me_A == local_path->at(i).freeCell->me_B) {
+			common_ellip = local_path->at(i).freeCell->me_B;
+			obstacle1 = local_path->at(i - 1).freeCell->me_B;
+			obstacle2 = local_path->at(i).freeCell->me_A;
+		}
+		else if (local_path->at(i - 1).freeCell->me_B == local_path->at(i).freeCell->me_A) {
+			common_ellip = local_path->at(i).freeCell->me_A;
+			obstacle1 = local_path->at(i - 1).freeCell->me_A;
+			obstacle2 = local_path->at(i).freeCell->me_B;
+		}
+		else if (local_path->at(i - 1).freeCell->me_B == local_path->at(i).freeCell->me_B) {
+			common_ellip = local_path->at(i).freeCell->me_B;
+			obstacle1 = local_path->at(i - 1).freeCell->me_A;
+			obstacle2 = local_path->at(i).freeCell->me_A;
+		}
+		else
+			continue;
+
+		sweep_start = vector_segment(common_ellip->center_x, common_ellip->center_y,
+			obstacle1->center_x, obstacle1->center_y);
+		sweep_end = vector_segment(common_ellip->center_x, common_ellip->center_y,
+			obstacle2->center_x, obstacle2->center_y);
+		std::vector<quad*> support;
+		for (int j = 0; j < map_builder.quad_list.size(); j++) {
+			vector_segment sweep;
+			if (map_builder.quad_list.at(j).me_A == common_ellip) {
+				if ((map_builder.quad_list.at(j).me_B == obstacle1) ||
+					(map_builder.quad_list.at(j).me_B == obstacle2))
+					continue;
+				float center_x = (map_builder.quad_list.at(j).free1.x1 +
+					map_builder.quad_list.at(j).free1.x2 +
+					map_builder.quad_list.at(j).free2.x1 +
+					map_builder.quad_list.at(j).free2.x2) / 4;
+				float center_y = (map_builder.quad_list.at(j).free1.y1 +
+					map_builder.quad_list.at(j).free1.y2 +
+					map_builder.quad_list.at(j).free2.y1 +
+					map_builder.quad_list.at(j).free2.y2) / 4;
+				sweep = vector_segment(common_ellip->center_x, common_ellip->center_y,
+					center_x, center_y);
+				if (sweep_start.leftOn(sweep.x2, sweep.y2) == sweep.leftOn(sweep_end.x2, sweep_end.y2))
+					support.push_back(&map_builder.quad_list.at(j));
+			}
+			if (map_builder.quad_list.at(j).me_B == common_ellip) {
+				if ((map_builder.quad_list.at(j).me_A == obstacle1) ||
+					(map_builder.quad_list.at(j).me_A == obstacle2))
+					continue;
+				float center_x = (map_builder.quad_list.at(j).free1.x1 +
+					map_builder.quad_list.at(j).free1.x2 +
+					map_builder.quad_list.at(j).free2.x1 +
+					map_builder.quad_list.at(j).free2.x2) / 4;
+				float center_y = (map_builder.quad_list.at(j).free1.y1 +
+					map_builder.quad_list.at(j).free1.y2 +
+					map_builder.quad_list.at(j).free2.y1 +
+					map_builder.quad_list.at(j).free2.y2) / 4;
+				sweep = vector_segment(common_ellip->center_x, common_ellip->center_y,
+					center_x, center_y);
+				if (sweep_start.leftOn(sweep.x2, sweep.y2) == sweep.leftOn(sweep_end.x2, sweep_end.y2))
+					support.push_back(&map_builder.quad_list.at(j));
+			}
+		}
+		bool dir = sweep_end.leftOn(sweep_start.x2, sweep_start.y2);
+		for (int j = 0; j < support.size(); j++) {
+			int index = 0;
+			float center_x = (support.at(0)->free1.x1 +	support.at(0)->free1.x2 +
+				support.at(0)->free2.x1 + support.at(0)->free2.x2) / 4;
+			float center_y = (support.at(0)->free1.y1 +	support.at(0)->free1.y2 +
+				support.at(0)->free2.y1 + support.at(0)->free2.y2) / 4;
+			vector_segment sweep = vector_segment(common_ellip->center_x,
+				common_ellip->center_y, center_x, center_y);
+			for (int k = 1; k < support.size(); k++) {
+				center_x = (support.at(j)->free1.x1 + support.at(j)->free1.x2 +
+					support.at(j)->free2.x1 + support.at(j)->free2.x2) / 4;
+				center_y = (support.at(j)->free1.y1 + support.at(j)->free1.y2 +
+					support.at(j)->free2.y1 + support.at(j)->free2.y2) / 4;
+				vector_segment temp = vector_segment(common_ellip->center_x,
+					common_ellip->center_y, center_x, center_y);
+				if (sweep.leftOn(temp.x2, temp.y2) == dir) {
+					index = k;
+					sweep = temp;
+				}
+			}
+			local_path->insert(local_path->begin() + i, local_path_node(sweep.x2, sweep.y2, support.at(index)));
+			support.erase(support.begin() + index);
+		}
+	}
+
+	for (int i = 0; i < local_path->size(); i++) {
+		for (int j = local_path->size() - 1; j > i; j--) {
+			if (local_path->at(i).coords.equals(local_path->at(j).coords)) {
+				for (int k = i; k < j; k++) {
+					local_path->erase(local_path->begin() + i);
+				}
+				i--;
+				break;
+			}
+		}
+	}
+}
+
+void elliptical_approx::local_path_planning(std::vector<quad*>* feasible_path, std::vector<local_path_node>* local_path) {
+	local_path->push_back(local_path_node(start_x, start_y, nullptr));
+	float center_x0 = (feasible_path->at(0)->free1.x1 + feasible_path->at(0)->free1.x2 +
+		feasible_path->at(0)->free2.x1 + feasible_path->at(0)->free2.x2) / 4;
+	float center_y0 = (feasible_path->at(0)->free1.y1 + feasible_path->at(0)->free1.y2 +
+		feasible_path->at(0)->free2.y1 + feasible_path->at(0)->free2.y2) / 4;
+	local_path->push_back(local_path_node(center_x0, center_y0, feasible_path->at(0)));
+	for (int i = 1; i < feasible_path->size(); i++) {
+		/*/float exchange_zone[7] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+		bool intersects = scrape_common_area_measure(feasible_path->at(i - 1), feasible_path->at(i), exchange_zone);
+		if (intersects) {
+			Point center = Point(exchange_zone[3], exchange_zone[4]);
+			Point far_point = Point(exchange_zone[5], exchange_zone[6]);
+			float ratio = (1 + 2 / exchange_zone[2]);
+			Point pivot = Point((ratio * far_point.x + center.x) / (ratio + 1),
+				(ratio * far_point.y + center.y) / (ratio + 1));
+			local_path->push_back(pivot);
+		}*/
+		center_x0 = (feasible_path->at(i)->free1.x1 + feasible_path->at(i)->free1.x2 +
+			feasible_path->at(i)->free2.x1 + feasible_path->at(i)->free2.x2) / 4;
+		center_y0 = (feasible_path->at(i)->free1.y1 + feasible_path->at(i)->free1.y2 +
+			feasible_path->at(i)->free2.y1 + feasible_path->at(i)->free2.y2) / 4;
+		local_path->push_back(local_path_node(center_x0, center_y0, feasible_path->at(i)));
+	}
+	center_x0 = (feasible_path->at(feasible_path->size() - 1)->free1.x1 + feasible_path->at(feasible_path->size() - 1)->free1.x2 +
+		feasible_path->at(feasible_path->size() - 1)->free2.x1 + feasible_path->at(feasible_path->size() - 1)->free2.x2) / 4;
+	center_y0 = (feasible_path->at(feasible_path->size() - 1)->free1.y1 + feasible_path->at(feasible_path->size() - 1)->free1.y2 +
+		feasible_path->at(feasible_path->size() - 1)->free2.y1 + feasible_path->at(feasible_path->size() - 1)->free2.y2) / 4;
+	local_path->push_back(local_path_node(center_x0, center_y0, feasible_path->at(feasible_path->size() - 1)));
+	local_path->push_back(local_path_node(goal_x, goal_y, nullptr));
+}
+
+int elliptical_approx::smoothen_paths(int index, std::vector<quad*>* path_list) {
+	float exchange_zone[7] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+	bool intersects = scrape_common_area_measure(
+		path_list->at(index - 1), path_list->at(index), exchange_zone);
+
+	// find the common ellipse obstacle for the two quads
+	ellipse* common_obstacle, *obstacle1, *obstacle2;
+	vector_segment sweep_start, sweep_end;
+
+	if (path_list->at(index - 1)->me_A == path_list->at(index)->me_A) {
+		common_obstacle = path_list->at(index)->me_A;
+		sweep_start = vector_segment(common_obstacle->center_x, common_obstacle->center_y,
+			path_list->at(index - 1)->me_B->center_x,
+			path_list->at(index - 1)->me_B->center_y);
+		sweep_end = vector_segment(common_obstacle->center_x, common_obstacle->center_y,
+			path_list->at(index)->me_B->center_x,
+			path_list->at(index)->me_B->center_y);
+		obstacle1 = path_list->at(index - 1)->me_B;
+		obstacle2 = path_list->at(index)->me_B;
+	}
+	else if (path_list->at(index - 1)->me_A == path_list->at(index)->me_B) {
+		common_obstacle = path_list->at(index)->me_B;
+		sweep_start = vector_segment(common_obstacle->center_x, common_obstacle->center_y,
+			path_list->at(index - 1)->me_B->center_x,
+			path_list->at(index - 1)->me_B->center_y);
+		sweep_end = vector_segment(common_obstacle->center_x, common_obstacle->center_y,
+			path_list->at(index)->me_A->center_x,
+			path_list->at(index)->me_A->center_y);
+		obstacle1 = path_list->at(index - 1)->me_B;
+		obstacle2 = path_list->at(index)->me_A;
+	}
+	else if (path_list->at(index - 1)->me_B == path_list->at(index)->me_A) {
+		common_obstacle = path_list->at(index)->me_A;
+		sweep_start = vector_segment(common_obstacle->center_x, common_obstacle->center_y,
+			path_list->at(index - 1)->me_A->center_x,
+			path_list->at(index - 1)->me_A->center_y);
+		sweep_end = vector_segment(common_obstacle->center_x, common_obstacle->center_y,
+			path_list->at(index)->me_B->center_x,
+			path_list->at(index)->me_B->center_y);
+		obstacle1 = path_list->at(index - 1)->me_A;
+		obstacle2 = path_list->at(index)->me_B;
+	}
+	else if (path_list->at(index - 1)->me_B == path_list->at(index)->me_B) {
+		common_obstacle = path_list->at(index)->me_B;
+		sweep_start = vector_segment(common_obstacle->center_x, common_obstacle->center_y,
+			path_list->at(index - 1)->me_A->center_x,
+			path_list->at(index - 1)->me_A->center_y);
+		sweep_end = vector_segment(common_obstacle->center_x, common_obstacle->center_y,
+			path_list->at(index)->me_A->center_x,
+			path_list->at(index)->me_A->center_y);
+		obstacle1 = path_list->at(index - 1)->me_A;
+		obstacle2 = path_list->at(index)->me_A;
+	}
+	else
+		return 0;
+	render_agent.draw_quad(path_list->at(index - 1), Color(1.0, 1.0, 1.0));
+	render_agent.draw_quad(path_list->at(index), Color(0.0, 0.0, 0.0));
+	render_agent.draw_ellipse(*common_obstacle);
+	render_agent.invalidate();
+	std::cin.ignore();
+	render_agent.clear_paths(44);
+	render_agent.add_path(sweep_start, Color(1.0, 1.0, 1.0));
+	render_agent.add_path(sweep_end, Color(0.0, 0.0, 0.0));
+	std::cin.ignore();
+	render_agent.clear_paths(2);
+
+	// create a list of quad with its sweep vector lying between sweep_start and sweep_end
+	std::vector<quad*> options;
+	std::vector<quad>* quads = &(map_builder.quad_list);
+
+	for (int i = 0; i < quads->size(); i++) {
+		if ((&quads->at(i) == path_list->at(index - 1)) ||
+			(&quads->at(i) == path_list->at(index)))
+			continue;
+		vector_segment sweep;
+		if (quads->at(i).me_A == common_obstacle) {
+			sweep = vector_segment(common_obstacle->center_x, common_obstacle->center_y,
+				quads->at(i).me_B->center_x, quads->at(i).me_B->center_y);
+		}
+		else if (quads->at(i).me_B == common_obstacle) {
+			sweep = vector_segment(common_obstacle->center_x, common_obstacle->center_y,
+				quads->at(i).me_A->center_x, quads->at(i).me_A->center_y);
+		}
+		else
+			continue;
+
+		// check if this sweep is between sweep_start and sweep_end
+		if (sweep_start.leftOn(sweep.x2, sweep.y2) != sweep.leftOn(sweep_end.x2, sweep_end.y2)) {
+			continue;
+		}
+		else {
+			options.push_back(&quads->at(i));
+			render_agent.add_path(sweep, Color(1.0, 0.0, 0.0));
+		}
+	}
+	render_agent.invalidate();
+	std::cin.ignore();
+	render_agent.clear_paths(options.size());
+
+	/*/for (int i = 0; i < options.size(); i++) {
+		path_list->insert(path_list->begin() + index, options.at(i));
+	}
+	return options.size();*/
+	return 0;
+}
+
+bool elliptical_approx::check_contains(std::vector<quad*>* quads, std::vector<vector_segment>* edges) {
+	quad* this_quad = quads->at(0);
+	quads->erase(quads->begin());
+	for (int i = 0; i < edges->size(); i++) {
+
+		bool test_end1 = this_quad->isInside(edges->at(i).x1, edges->at(i).y1);
+		bool test_end2 = this_quad->isInside(edges->at(i).x2, edges->at(i).y2);
+		if (test_end1 && test_end2) {
+			edges->erase(edges->begin() + i);
+			i--;
+			continue;
+		}
+		Point point;
+		if (this_quad->free1.isIntersecting(&edges->at(i))) {
+			point = this_quad->free1.intersection_points(&edges->at(i));
+		}
+		else if (this_quad->free2.isIntersecting(&edges->at(i))) {
+			point = this_quad->free2.intersection_points(&edges->at(i));
+		}
+
+		if (!test_end1 && !test_end2) {
+			edges->push_back(vector_segment(edges->at(i).x1, edges->at(i).y1,
+				point.x, point.y));
+			edges->at(i).x1 = point.x;
+			edges->at(i).y1 = point.y;
+			i--;
+			continue;
+		}
+		if (test_end1 == false) {
+			edges->at(i).x2 = point.x;
+			edges->at(i).y2 = point.y;
+			continue;
+		}
+		if (test_end2 == false) {
+			edges->at(i).x1 = point.x;
+			edges->at(i).y1 = point.y;
+			continue;
+		}
+	}
+	if (!quads->empty())
+		check_contains(quads, edges);
+	if (edges->empty())
+		return true;
 	return false;
 }
 
