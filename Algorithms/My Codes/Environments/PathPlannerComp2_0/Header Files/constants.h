@@ -12,6 +12,7 @@
 #define VORONOI 103
 #define ELLIPTICAL_APPROX 104
 #define PRE_BUILT 105
+#define COMPARISON 106
 
 #define PI 2 * acos(0.0)
 

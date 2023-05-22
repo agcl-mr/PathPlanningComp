@@ -2186,7 +2186,8 @@ void elliptical_approx::init(std::vector<Node>* node_list, int width, int height
 }
 
 void elliptical_approx::finder(int start_cell_index, int goal_cell_index, 
-	std::chrono::time_point<std::chrono::high_resolution_clock> start) {
+	std::chrono::time_point<std::chrono::high_resolution_clock> start,
+	consolidated_result* result) {
 	this->start_cell_index = start_cell_index;
 	this->goal_cell_index = goal_cell_index;
 
@@ -2228,6 +2229,8 @@ void elliptical_approx::finder(int start_cell_index, int goal_cell_index,
 		elapsed).count();
 	std::cout << "path processed in : " << microseconds << " microseconds\n";
 	run_time.push_back(microseconds);
+
+	result->me_ea = algo_result(path_length(&local_path), microseconds, stringify(&local_path));
 
 	long long net_sum = 0;
 	for (int i = 0; i < run_time.size(); i++) {
@@ -3159,6 +3162,25 @@ bool elliptical_approx::check_contains(std::vector<quad*>* quads, std::vector<ve
 	if (edges->empty())
 		return true;
 	return false;
+}
+
+float elliptical_approx::path_length(std::vector<local_path_node>* path) {
+	float length = 0.0f;
+	for (int i = 1; i < path->size(); i++) {
+		length += CompGeomFuncEllipseApprox::distance(path->at(i - 1).coords.x
+			, path->at(i - 1).coords.y, path->at(i).coords.x, path->at(i).coords.y);
+	}
+	return length;
+}
+
+std::string elliptical_approx::stringify(std::vector<local_path_node>* path) {
+	std::string order = "[";
+	for (int i = 0; i < path->size(); i++) {
+		order = order + " {" + std::to_string(path->at(i).coords.x) + ", " + 
+			std::to_string(path->at(i).coords.y) + "}, ";
+	}
+	order = order + "]";
+	return order;
 }
 
 bool convex_clustering::leftOnly(float line_x1, float line_y1,

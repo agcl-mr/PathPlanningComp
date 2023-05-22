@@ -4,6 +4,7 @@
 #include <iostream>
 #include<glad/glad.h>
 #include<vector>
+#include <string>
 
 class Node
 {
@@ -187,6 +188,65 @@ public:
 	void insert(GLfloat* list, int size);
 
 	void clear(void);
+};
+
+class algo_result {
+public:
+	float path_length;
+	float computation_time;
+	std::string path;
+
+	algo_result(void) {
+		this->path_length = 0.0f;
+		this->computation_time = 0.0f;
+		this->path = "";
+	}
+
+	algo_result(float length, float time, std::string path) {
+		this->path_length = length;
+		this->computation_time = time;
+		this->path = path;
+	}
+
+	std::string stringify(void) {
+		std::string res;
+		res = "{'length' : " + std::to_string(path_length) + ", 'time' : " + std::to_string(computation_time) + ", path : '" + path + "'}";
+		return res;
+	}
+};
+
+class consolidated_result {
+public:
+	std::string map_id;
+	int start_x, start_y, goal_x, goal_y;
+	algo_result me_ea, rrtStar, prm, fmt, est, rlrt, sst, stride;
+
+	consolidated_result(std::string map_id, int start_index, int goal_index, int GRID_WIDTH) {
+		this->map_id = map_id;
+		start_x = start_index % GRID_WIDTH;
+		start_y = start_index / GRID_WIDTH;
+		goal_x = goal_index % GRID_WIDTH;
+		goal_y = goal_index / GRID_WIDTH;
+		me_ea = algo_result();
+		rrtStar = algo_result();
+		prm = algo_result();
+		fmt = algo_result();
+		est = algo_result();
+		rlrt = algo_result();
+		sst = algo_result();
+		stride = algo_result();
+	}
+
+	std::string stringify(void) {
+		std::string res;
+		res = "{'map_id' : " + map_id + ", 'states' : {'start' : {'x' : " + std::to_string(start_x) + ", 'y' : " 
+			+ std::to_string(start_y) +	"}, 'goal' : {'x' : " + std::to_string(goal_x) + ", 'y' : " + 
+			std::to_string(goal_y) + "}}, 'results' : {'me_ea' : '"+me_ea.stringify() + "', 'rrtStar' : '" +
+			rrtStar.stringify() + "', 'prm' : '" + prm.stringify() + "', 'fmt' : '" + fmt.stringify() +
+			"', 'est' : '" + est.stringify() + "', 'rlrt' : '" + rlrt.stringify() + "', 'sst' : '" +
+			sst.stringify() + "', 'stride' : '" + stride.stringify() + "'}}";
+		return res;
+	}
 };
 
 #endif

@@ -18,7 +18,8 @@ voronoi_algo voronoi;
 elliptical_approx approximater;
 algos pre_built_algos;
 
-int algorithm_mode = PRE_BUILT;
+int algorithm_mode = COMPARISON;
+//int algorithm_mode = PRE_BUILT;
 //int algorithm_mode = ELLIPTICAL_APPROX;
 
 //constants
@@ -73,48 +74,6 @@ void update_target_cell(int updated_index) {
 }
 
 void array_updater(std::vector<float>* vertices);
-
-void find_path() {
-	paths.clear();
-	for (int i = 0; i < nodes.size(); i++) {
-		nodes.at(i).cost = 10000.0f;
-		nodes.at(i).best = nullptr;
-	}
-	// ------- A-Star
-	if (algorithm_mode == A_STAR) {
-		a_star.init(&nodes, algo_graph, keep_solving, start_cell_index, goal_cell_index);
-		extract_path(&(nodes.at(goal_cell_index)));
-	}
-
-	// ------- Genetic 
-	if (algorithm_mode == GENETIC) {
-		genetic.init(grid_width, grid_height, start_cell_index, goal_cell_index, &nodes);
-		genetic.solver();
-		genetic.extract_path(&paths, start_cell_index, goal_cell_index);
-	}
-
-	// ------- Voronoi
-	if (algorithm_mode == VORONOI) {
-		voronoi.finder(start_cell_index, goal_cell_index);
-		//voronoi.visualize_obstacles(&paths, array_updater);
-	}
-
-	// ------- Elliptical Approx
-	if (algorithm_mode == ELLIPTICAL_APPROX) {
-		auto start = std::chrono::high_resolution_clock::now();
-		approximater.finder(start_cell_index, goal_cell_index, start);
-	}
-
-	// ------- OMPL algos
-	if (algorithm_mode == PRE_BUILT){
-		//renderer.clean_up();
-		//pre_built_algos.dijkstras();
-		//pre_built_algos.abitStar();
-		pre_built_algos.rrtStar(start_cell_index, goal_cell_index);
-		array_updater(nullptr);
-		renderer.render();
-	}
-}
 
 //general purpose helper functions
 void sample_node_insert() {
@@ -326,6 +285,68 @@ void add_paths_to_render_queue_pointer_type(std::vector<Path> path_list) {
 	}
 }
 
+void find_path() {
+	paths.clear();
+	for (int i = 0; i < nodes.size(); i++) {
+		nodes.at(i).cost = 10000.0f;
+		nodes.at(i).best = nullptr;
+	}
+	// ------- A-Star
+	if (algorithm_mode == A_STAR) {
+		a_star.init(&nodes, algo_graph, keep_solving, start_cell_index, goal_cell_index);
+		extract_path(&(nodes.at(goal_cell_index)));
+	}
+
+	// ------- Genetic 
+	if (algorithm_mode == GENETIC) {
+		genetic.init(grid_width, grid_height, start_cell_index, goal_cell_index, &nodes);
+		genetic.solver();
+		genetic.extract_path(&paths, start_cell_index, goal_cell_index);
+	}
+
+	// ------- Voronoi
+	if (algorithm_mode == VORONOI) {
+		voronoi.finder(start_cell_index, goal_cell_index);
+		//voronoi.visualize_obstacles(&paths, array_updater);
+	}
+
+	// ------- Elliptical Approx
+	if (algorithm_mode == ELLIPTICAL_APPROX) {
+		auto start = std::chrono::high_resolution_clock::now();
+		//approximater.finder(start_cell_index, goal_cell_index, start);
+	}
+
+	// ------- OMPL algos
+	if (algorithm_mode == PRE_BUILT) {
+		//pre_built_algos.rrtStar(start_cell_index, goal_cell_index);
+		//pre_built_algos.prm(start_cell_index, goal_cell_index);
+		//pre_built_algos.fmt(start_cell_index, goal_cell_index);
+		//pre_built_algos.est(start_cell_index, goal_cell_index);
+		//pre_built_algos.rlrt(start_cell_index, goal_cell_index);
+		//pre_built_algos.sst(start_cell_index, goal_cell_index);
+		//pre_built_algos.stride(start_cell_index, goal_cell_index);
+	}
+
+	// ------- comparison Mode
+	if (algorithm_mode == COMPARISON) {
+		consolidated_result result = consolidated_result("Images/exp6.bmp", start_cell_index, goal_cell_index, grid_width);
+
+		auto start = std::chrono::high_resolution_clock::now();
+		approximater.finder(start_cell_index, goal_cell_index, start, &result);
+		pre_built_algos.rrtStar(start_cell_index, goal_cell_index, &result);
+		pre_built_algos.prm(start_cell_index, goal_cell_index, &result);
+		pre_built_algos.fmt(start_cell_index, goal_cell_index, &result);
+		pre_built_algos.est(start_cell_index, goal_cell_index, &result);
+		pre_built_algos.rlrt(start_cell_index, goal_cell_index, &result);
+		pre_built_algos.sst(start_cell_index, goal_cell_index, &result);
+		pre_built_algos.stride(start_cell_index, goal_cell_index, &result);
+
+		//std::cout << "output : " << result.stringify() << "\n";
+		std::ofstream log("E:/2022/DDP_ME18B074/Submission/results/logfile.txt", std::ios_base::app | std::ios_base::out);
+		log << result.stringify() + "\n";
+	}
+}
+
 void array_updater(std::vector<float>* vertices) {
 	renderer.vertices.clear();
 	renderer.indices.clear();
@@ -455,6 +476,16 @@ void keyboard_triggers(int key) {
 		add_nodes_to_render_queue(nodes);
 		add_paths_to_render_queue(paths);
 	}
+
+	if (algorithm_mode == PRE_BUILT) {
+		add_nodes_to_render_queue(nodes);
+		add_paths_to_render_queue(paths);
+	}
+
+	if (algorithm_mode == COMPARISON) {
+		//add_nodes_to_render_queue(nodes);
+		//add_paths_to_render_queue(paths);
+	}
 }
 
 int main() {
@@ -487,6 +518,11 @@ int main() {
 		}
 		if (algorithm_mode == PRE_BUILT)
 			pre_built_algos.updateObstacleMap(&nodes, grid_width, grid_height, &paths);
+
+		if (algorithm_mode == COMPARISON) {
+			approximater.init(&nodes, grid_width, grid_height, &renderer, &paths, array_updater);
+			pre_built_algos.updateObstacleMap(&nodes, grid_width, grid_height, &paths);
+		}
 		find_path();
 	}
 
@@ -509,6 +545,11 @@ int main() {
 	}
 
 	if (algorithm_mode == PRE_BUILT) {
+		add_nodes_to_render_queue(nodes);
+		add_paths_to_render_queue(paths);
+	}
+
+	if (algorithm_mode == COMPARISON) {
 		add_nodes_to_render_queue(nodes);
 		add_paths_to_render_queue(paths);
 	}

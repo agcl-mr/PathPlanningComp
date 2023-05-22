@@ -4,6 +4,8 @@
 #pragma once
 
 #include <iostream>
+#include <ios>
+#include <fstream>
 #include <vector>
 #include <chrono>
 #include "Header Files/global_variables.h"

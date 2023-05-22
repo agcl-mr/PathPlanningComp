@@ -113,7 +113,263 @@ void algos::abitStar(void) {
     return;
 }
 
-void algos::rrtStar(int start_cell_index, int goal_cell_index) {
+void algos::abitStar2(int start_cell_index, int goal_cell_index, consolidated_result* result) {
+
+    // Specify the start and goal states
+    ob::ScopedState<> start(space);
+    ob::ScopedState<> goal(space);
+    start[0] = start_cell_index % map_width; // Set the start coordinates
+    start[1] = start_cell_index / map_width;
+    goal[0] = goal_cell_index % map_width; // Set the goal coordinates
+    goal[1] = goal_cell_index / map_width;
+
+    // Set the start and goal states
+    ss->setStartAndGoalStates(start, goal);
+
+    // Set projection evaluation
+    //auto projectionEvaluator = std::make_shared<MyProjectionEvaluator>(space);
+    //ss->getStateSpace()->registerDefaultProjection(projectionEvaluator);
+
+    // Create the planner (ABITstar*)
+    auto planner(std::make_shared<og::ABITstar>(ss->getSpaceInformation()));
+    ss->setPlanner(planner);
+
+    // Attempt to solve the problem within the given time
+    ob::PlannerStatus solved = ss->solve(0.015);
+
+    if (solved)
+    {
+        show_results(nullptr);
+    }
+
+    return;
+}
+
+void algos::prm(int start_cell_index, int goal_cell_index, consolidated_result* result) {
+
+    // Specify the start and goal states
+    ob::ScopedState<> start(space);
+    ob::ScopedState<> goal(space);
+    start[0] = start_cell_index % map_width; // Set the start coordinates
+    start[1] = start_cell_index / map_width;
+    goal[0] = goal_cell_index % map_width; // Set the goal coordinates
+    goal[1] = goal_cell_index / map_width;
+
+    // Set the start and goal states
+    ss->setStartAndGoalStates(start, goal);
+
+    // Create the planner (PRM*)
+    auto planner(std::make_shared<og::PRM>(ss->getSpaceInformation()));
+    ss->setPlanner(planner);
+
+    // Attempt to solve the problem within the given time
+    ob::PlannerStatus solved = ss->solve(0.015);
+
+    if (solved)
+    {
+        show_results(&result->prm);
+    }
+
+    return;
+}
+
+void algos::fmt(int start_cell_index, int goal_cell_index, consolidated_result* result) {
+
+    // Specify the start and goal states
+    ob::ScopedState<> start(space);
+    ob::ScopedState<> goal(space);
+    start[0] = start_cell_index % map_width; // Set the start coordinates
+    start[1] = start_cell_index / map_width;
+    goal[0] = goal_cell_index % map_width; // Set the goal coordinates
+    goal[1] = goal_cell_index / map_width;
+
+    // Set the start and goal states
+    ss->setStartAndGoalStates(start, goal);
+
+    // Create the planner (FMT*)
+    auto planner(std::make_shared<og::FMT>(ss->getSpaceInformation()));
+    ss->setPlanner(planner);
+
+    // Attempt to solve the problem within the given time
+    ob::PlannerStatus solved = ss->solve(0.5);
+
+    if (solved)
+    {
+        show_results(&result->fmt);
+    }
+
+    return;
+}
+
+void algos::est(int start_cell_index, int goal_cell_index, consolidated_result* result) {
+
+    // Specify the start and goal states
+    ob::ScopedState<> start(space);
+    ob::ScopedState<> goal(space);
+    start[0] = start_cell_index % map_width; // Set the start coordinates
+    start[1] = start_cell_index / map_width;
+    goal[0] = goal_cell_index % map_width; // Set the goal coordinates
+    goal[1] = goal_cell_index / map_width;
+
+    // Set the start and goal states
+    ss->setStartAndGoalStates(start, goal);
+
+    // Create the planner (EST*)
+    auto planner(std::make_shared<og::EST>(ss->getSpaceInformation()));
+    ss->setPlanner(planner);
+
+    // Attempt to solve the problem within the given time
+    ob::PlannerStatus solved = ss->solve(0.5);
+
+    if (solved)
+    {
+        show_results(&result->est);
+    }
+
+    return;
+}
+
+void algos::rlrt(int start_cell_index, int goal_cell_index, consolidated_result* result) {
+
+    // Specify the start and goal states
+    ob::ScopedState<> start(space);
+    ob::ScopedState<> goal(space);
+    start[0] = start_cell_index % map_width; // Set the start coordinates
+    start[1] = start_cell_index / map_width;
+    goal[0] = goal_cell_index % map_width; // Set the goal coordinates
+    goal[1] = goal_cell_index / map_width;
+
+    // Set the start and goal states
+    ss->setStartAndGoalStates(start, goal);
+
+    // Create the planner (RLRT*)
+    auto planner(std::make_shared<og::RLRT>(ss->getSpaceInformation()));
+    ss->setPlanner(planner);
+
+    // Attempt to solve the problem within the given time
+    ob::PlannerStatus solved = ss->solve(0.5);
+
+    if (solved)
+    {
+        show_results(&result->rlrt);
+    }
+
+    return;
+}
+
+void algos::sst(int start_cell_index, int goal_cell_index, consolidated_result* result) {
+
+    // Specify the start and goal states
+    ob::ScopedState<> start(space);
+    ob::ScopedState<> goal(space);
+    start[0] = start_cell_index % map_width; // Set the start coordinates
+    start[1] = start_cell_index / map_width;
+    goal[0] = goal_cell_index % map_width; // Set the goal coordinates
+    goal[1] = goal_cell_index / map_width;
+
+    // Set the start and goal states
+    ss->setStartAndGoalStates(start, goal);
+
+    // Create the planner (SST*)
+    auto planner(std::make_shared<og::SST>(ss->getSpaceInformation()));
+    ss->setPlanner(planner);
+
+    // Attempt to solve the problem within the given time
+    ob::PlannerStatus solved = ss->solve(0.5);
+
+    if (solved)
+    {
+        show_results(&result->sst);
+    }
+
+    return;
+}
+
+void algos::xxl(int start_cell_index, int goal_cell_index, consolidated_result* result) {
+
+    // Specify the start and goal states
+    ob::ScopedState<> start(space);
+    ob::ScopedState<> goal(space);
+    start[0] = start_cell_index % map_width; // Set the start coordinates
+    start[1] = start_cell_index / map_width;
+    goal[0] = goal_cell_index % map_width; // Set the goal coordinates
+    goal[1] = goal_cell_index / map_width;
+
+    // Set the start and goal states
+    ss->setStartAndGoalStates(start, goal);
+
+    // Create the planner (XXL*)
+    auto planner(std::make_shared<og::XXL>(ss->getSpaceInformation()));
+    ss->setPlanner(planner);
+
+    // Attempt to solve the problem within the given time
+    ob::PlannerStatus solved = ss->solve(0.5);
+
+    if (solved)
+    {
+        show_results(nullptr);
+    }
+
+    return;
+}
+
+void algos::stride(int start_cell_index, int goal_cell_index, consolidated_result* result) {
+
+    // Specify the start and goal states
+    ob::ScopedState<> start(space);
+    ob::ScopedState<> goal(space);
+    start[0] = start_cell_index % map_width; // Set the start coordinates
+    start[1] = start_cell_index / map_width;
+    goal[0] = goal_cell_index % map_width; // Set the goal coordinates
+    goal[1] = goal_cell_index / map_width;
+
+    // Set the start and goal states
+    ss->setStartAndGoalStates(start, goal);
+
+    // Create the planner (STRIDE*)
+    auto planner(std::make_shared<og::STRIDE>(ss->getSpaceInformation()));
+    ss->setPlanner(planner);
+
+    // Attempt to solve the problem within the given time
+    ob::PlannerStatus solved = ss->solve(0.5);
+
+    if (solved)
+    {
+        show_results(&result->stride);
+    }
+
+    return;
+}
+
+void algos::bitStar(int start_cell_index, int goal_cell_index, consolidated_result* result) {
+
+    // Specify the start and goal states
+    ob::ScopedState<> start(space);
+    ob::ScopedState<> goal(space);
+    start[0] = start_cell_index % map_width; // Set the start coordinates
+    start[1] = start_cell_index / map_width;
+    goal[0] = goal_cell_index % map_width; // Set the goal coordinates
+    goal[1] = goal_cell_index / map_width;
+
+    // Set the start and goal states
+    ss->setStartAndGoalStates(start, goal);
+
+    // Create the planner (BITstar*)
+    auto planner(std::make_shared<og::BITstar>(ss->getSpaceInformation()));
+    ss->setPlanner(planner);
+
+    // Attempt to solve the problem within the given time
+    ob::PlannerStatus solved = ss->solve(0.015);
+
+    if (solved)
+    {
+        show_results(nullptr);
+    }
+
+    return;
+}
+
+void algos::rrtStar(int start_cell_index, int goal_cell_index, consolidated_result* result) {
 
     // Specify the start and goal states
     ob::ScopedState<> start(space);
@@ -135,18 +391,18 @@ void algos::rrtStar(int start_cell_index, int goal_cell_index) {
 
     if (solved)
     {
-        show_results();
+        show_results(&result->rrtStar);
     }
 
     return;
 }
 
-void algos::show_results(void){
+void algos::show_results(algo_result* result) {
     // Retrieve the path
     og::PathGeometric path = ss->getSolutionPath();
 
     // Print the path
-    path.printAsMatrix(std::cout);
+    //path.printAsMatrix(std::cout);
 
     for (std::size_t i = 1; i < path.getStateCount(); ++i)
     {
@@ -171,4 +427,47 @@ void algos::show_results(void){
         else
             paths->push_back(Path(x1, y1, x2, y2, Color(0.0, 0.0, 0.0)));
     }
+
+    std::vector<std::vector<float>> solved_path;
+    for (std::size_t i = 0; i < path.getStateCount(); ++i)
+    {
+        const ob::State* state = path.getState(i);
+        const auto* coordinates = state->as<ob::RealVectorStateSpace::StateType>()->values;
+
+        // Access the x and y coordinates
+        float x = static_cast<float>(coordinates[0]);
+        float y = static_cast<float>(coordinates[1]);
+        int index = solved_path.size();
+        solved_path.push_back(std::vector<float>());
+        solved_path.at(index).push_back(x);
+        solved_path.at(index).push_back(y);
+    }
+
+    *result = algo_result(path_length(solved_path), 
+        ss->getLastPlanComputationTime(), 
+        stringify(solved_path));
+
+    // get computation time info
+    std::cout << "time info : " << ss->getLastPlanComputationTime() << std::endl;
+}
+
+float algos::path_length(std::vector<std::vector<float>> path) {
+    float length = 0.0f;
+    for (int i = 1; i < path.size(); i++) {
+        length += distance(path.at(i - 1)[0], path.at(i - 1)[1], path.at(i)[0], path.at(i)[1]);
+    }
+    return length;
+}
+
+float algos::distance(float x1, float y1, float x2, float y2) {
+    return sqrt(pow(x1 - x2, 2.0) + pow(y1 - y2, 2.0));
+}
+
+std::string algos::stringify(std::vector<std::vector<float>> path) {
+    std::string order = "[";
+    for (int i = 0; i < path.size(); i++) {
+        order = order + " {" + std::to_string(path.at(i)[0]) + ", " + std::to_string(path.at(i)[1]) + "}, ";
+    }
+    order = order + "]";
+    return order;
 }

@@ -482,7 +482,8 @@ public:
 	);
 
 	void finder(int start_cell_index, int goal_cell_index, 
-		std::chrono::time_point<std::chrono::high_resolution_clock> start);
+		std::chrono::time_point<std::chrono::high_resolution_clock> start,
+		consolidated_result* result);
 
 	double rateCurveElliptical(const column_vector& params);
 
@@ -551,6 +552,10 @@ private:
 	bool check_contains(std::vector<quad*>* quads, std::vector<vector_segment>* edges);
 
 	void local_path_planning(std::vector<quad*>* feasible_path, std::vector<local_path_node>* local_path);
+
+	float path_length(std::vector<local_path_node>* path);
+
+	std::string stringify(std::vector<local_path_node>* path);
 };
 
 #endif
