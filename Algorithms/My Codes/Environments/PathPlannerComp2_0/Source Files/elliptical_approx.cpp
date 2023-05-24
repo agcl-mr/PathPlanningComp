@@ -2962,7 +2962,16 @@ void elliptical_approx::path_cleanup(std::vector<quad*>* feasible_path, std::vec
 					sweep = temp;
 				}
 			}
-			local_path->insert(local_path->begin() + i, local_path_node(sweep.x2, sweep.y2, support.at(index)));
+			// check if that point is already in the path
+			bool found = false;
+			for (int k = 0; k < local_path->size(); k++) {
+				if (local_path->at(k).coords.equals(Point(sweep.x2, sweep.y2))) {
+					found = true;
+					break;
+				}
+			}
+			if (found == false)
+				local_path->insert(local_path->begin() + i, local_path_node(sweep.x2, sweep.y2, support.at(index)));
 			support.erase(support.begin() + index);
 		}
 	}
@@ -3122,7 +3131,11 @@ bool elliptical_approx::check_contains(std::vector<quad*>* quads, std::vector<ve
 	quad* this_quad = quads->at(0);
 	quads->erase(quads->begin());
 	for (int i = 0; i < edges->size(); i++) {
-
+		if (edges->at(i).length()<FLOATING_PRECISION) {
+			edges->erase(edges->begin() + i);
+			i--;
+			continue;
+		}
 		bool test_end1 = this_quad->isInside(edges->at(i).x1, edges->at(i).y1);
 		bool test_end2 = this_quad->isInside(edges->at(i).x2, edges->at(i).y2);
 		if (test_end1 && test_end2) {
@@ -3137,10 +3150,17 @@ bool elliptical_approx::check_contains(std::vector<quad*>* quads, std::vector<ve
 		else if (this_quad->free2.isIntersecting(&edges->at(i))) {
 			point = this_quad->free2.intersection_points(&edges->at(i));
 		}
+		else
+			continue;
 
 		if (!test_end1 && !test_end2) {
-			edges->push_back(vector_segment(edges->at(i).x1, edges->at(i).y1,
-				point.x, point.y));
+			if (point.equals(Point(edges->at(i).x1, edges->at(i).y1)))
+				continue;
+			if (point.equals(Point(edges->at(i).x2, edges->at(i).y2)))
+				continue;
+			vector_segment segment2 = vector_segment(edges->at(i).x1, edges->at(i).y1,
+				point.x, point.y);
+			edges->push_back(segment2);
 			edges->at(i).x1 = point.x;
 			edges->at(i).y1 = point.y;
 			i--;

@@ -329,7 +329,7 @@ void find_path() {
 
 	// ------- comparison Mode
 	if (algorithm_mode == COMPARISON) {
-		consolidated_result result = consolidated_result("Images/exp6.bmp", start_cell_index, goal_cell_index, grid_width);
+		consolidated_result result = consolidated_result("Maps/map12.bmp", start_cell_index, goal_cell_index, grid_width);
 
 		auto start = std::chrono::high_resolution_clock::now();
 		approximater.finder(start_cell_index, goal_cell_index, start, &result);
@@ -456,7 +456,7 @@ void keyboard_triggers(int key) {
 			update_target_cell(goal_cell_index + SENSITIVITY*grid_width);
 	}
 
-
+	std::cout << "start cell : " << start_cell_index << "goal cell : " << goal_cell_index << "\n";
 	find_path();
 
 	renderer.vertices.clear();
@@ -483,8 +483,8 @@ void keyboard_triggers(int key) {
 	}
 
 	if (algorithm_mode == COMPARISON) {
-		//add_nodes_to_render_queue(nodes);
-		//add_paths_to_render_queue(paths);
+		add_nodes_to_render_queue(nodes);
+		add_paths_to_render_queue(paths);
 	}
 }
 
@@ -496,13 +496,13 @@ int main() {
 	if (true) {//bypassing all the algo
 		//insert_nodes_grid();
 		//start_cell_index = 50;
-		start_cell_index = 1700;
+		start_cell_index = 0;
 		nodes.at(start_cell_index).type = START;
-		nodes.at(start_cell_index).cost = 0;
+		nodes.at(start_cell_index).cost = 64;
 		algo_graph = &(nodes.at(start_cell_index));
 		//goal_cell_index = 12880;
 		//goal_cell_index = 10208;
-		goal_cell_index = 8300;
+		goal_cell_index = 3866;
 		nodes.at(goal_cell_index).type = GOAL;
 
 		if (algorithm_mode == VORONOI)

@@ -163,7 +163,7 @@ void algos::prm(int start_cell_index, int goal_cell_index, consolidated_result* 
     ss->setPlanner(planner);
 
     // Attempt to solve the problem within the given time
-    ob::PlannerStatus solved = ss->solve(0.015);
+    ob::PlannerStatus solved = ss->solve(0.5);
 
     if (solved)
     {
@@ -359,7 +359,7 @@ void algos::bitStar(int start_cell_index, int goal_cell_index, consolidated_resu
     ss->setPlanner(planner);
 
     // Attempt to solve the problem within the given time
-    ob::PlannerStatus solved = ss->solve(0.015);
+    ob::PlannerStatus solved = ss->solve(0.5);
 
     if (solved)
     {
@@ -387,7 +387,7 @@ void algos::rrtStar(int start_cell_index, int goal_cell_index, consolidated_resu
     ss->setPlanner(planner);
 
     // Attempt to solve the problem within the given time
-    ob::PlannerStatus solved = ss->solve(0.015);
+    ob::PlannerStatus solved = ss->solve(0.5);
 
     if (solved)
     {
