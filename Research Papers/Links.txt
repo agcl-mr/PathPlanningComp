@@ -1,0 +1,4 @@
+https://nenadmarkus.com/p/ellipse-fitting-notes/
+https://scipython.com/blog/direct-linear-least-squares-fitting-of-an-ellipse/
+Hough Transform
+Blob-detection
